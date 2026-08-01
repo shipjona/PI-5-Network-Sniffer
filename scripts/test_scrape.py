@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from grizzl.config import CHARGERS, LOG_ENDPOINT, REQUEST_TIMEOUT_SECONDS
 from grizzl.database import (
+    get_runtime_chargers,
     get_normalized_session_count,
     initialize_database,
     save_parsed_sessions,
@@ -23,7 +24,7 @@ from grizzl.parser import parse_charging_history
 
 
 def _charger_by_numeric_id(charger_id: int) -> dict:
-    for charger in CHARGERS:
+    for charger in get_runtime_chargers(CHARGERS):
         if int(charger.get("charger_id", -1)) == charger_id:
             return charger
     raise SystemExit(f"Unknown configured numeric charger_id: {charger_id}")
