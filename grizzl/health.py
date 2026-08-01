@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import platform
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -61,6 +62,13 @@ def check_disk(path: Path = Path(".")) -> HealthCheck:
 
 
 def check_nmcli() -> HealthCheck:
+    if platform.system() != "Linux":
+        return HealthCheck(
+            "NetworkManager",
+            "ok",
+            f"Linux-only check skipped on {platform.system()}",
+        )
+
     try:
         result = _run(["nmcli", "--version"])
     except FileNotFoundError:
@@ -74,6 +82,13 @@ def check_nmcli() -> HealthCheck:
 
 
 def check_interface(interface: str) -> HealthCheck:
+    if platform.system() != "Linux":
+        return HealthCheck(
+            interface,
+            "ok",
+            f"Linux-only check skipped on {platform.system()}",
+        )
+
     try:
         result = _run(
             ["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device", "status"]
@@ -94,6 +109,13 @@ def check_interface(interface: str) -> HealthCheck:
 
 
 def check_system_time() -> HealthCheck:
+    if platform.system() != "Linux":
+        return HealthCheck(
+            "time",
+            "ok",
+            f"Linux-only check skipped on {platform.system()}",
+        )
+
     try:
         result = _run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"])
     except FileNotFoundError:
