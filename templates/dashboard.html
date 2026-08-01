@@ -1,22 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="metrics-grid">
+<section class="dashboard-live-bar" aria-live="polite">
+    <span id="dashboard-refresh-status">Updated on load</span>
+</section>
+
+<section class="metrics-grid" id="dashboard-metrics">
     <article class="metric">
         <span>Total Sessions</span>
-        <strong>{{ metrics.session_count }}</strong>
+        <strong id="metric-session-count">{{ metrics.session_count }}</strong>
     </article>
     <article class="metric">
         <span>Total Energy</span>
-        <strong>{{ "%.3f"|format(metrics.total_energy_kwh) }} kWh</strong>
+        <strong id="metric-total-energy">{{ "%.3f"|format(metrics.total_energy_kwh) }} kWh</strong>
     </article>
     <article class="metric">
         <span>Today</span>
-        <strong>{{ "%.3f"|format(metrics.today_energy_kwh) }} kWh</strong>
+        <strong id="metric-today-energy">{{ "%.3f"|format(metrics.today_energy_kwh) }} kWh</strong>
     </article>
     <article class="metric">
         <span>This Month</span>
-        <strong>{{ "%.3f"|format(metrics.month_energy_kwh) }} kWh</strong>
+        <strong id="metric-month-energy">{{ "%.3f"|format(metrics.month_energy_kwh) }} kWh</strong>
     </article>
 </section>
 
@@ -36,7 +40,7 @@
                         <th>Last Collection</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="dashboard-chargers-body">
                     {% for charger in chargers %}
                     <tr>
                         <td>
@@ -60,7 +64,7 @@
         <div class="panel-header">
             <h2>Energy By Charger</h2>
         </div>
-        <div class="bars">
+        <div class="bars" id="dashboard-energy-by-charger">
             {% set max_energy = metrics.by_charger | map(attribute='energy_kwh') | max if metrics.by_charger else 0 %}
             {% for row in metrics.by_charger %}
             <div class="bar-row">
@@ -79,7 +83,7 @@
     <div class="panel-header">
         <h2>Daily Energy</h2>
     </div>
-    <div class="bars">
+    <div class="bars" id="dashboard-daily-energy">
         {% set max_daily = metrics.daily | map(attribute='energy_kwh') | max if metrics.daily else 0 %}
         {% for row in metrics.daily %}
         <div class="bar-row">
@@ -112,7 +116,7 @@
                     <th>Cost</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="dashboard-sessions-body">
                 {% for session in sessions %}
                 <tr>
                     <td>{{ session.session_id }}</td>
@@ -148,7 +152,7 @@
                     <th>Error</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="dashboard-runs-body">
                 {% for run in runs %}
                 <tr>
                     <td>{{ run.started_at }}</td>

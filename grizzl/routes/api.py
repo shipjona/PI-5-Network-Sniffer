@@ -6,6 +6,7 @@ from grizzl.database import (
     get_chargers_with_status,
     get_sessions,
     initialize_database,
+    list_collection_runs,
     sync_chargers,
 )
 from grizzl.health import run_health_checks
@@ -34,6 +35,7 @@ def fleet():
     return jsonify(
         {
             "chargers": chargers,
+            "runs": list_collection_runs(limit=8),
             "sessions": sessions,
             "statistics": get_summary_metrics(),
         }

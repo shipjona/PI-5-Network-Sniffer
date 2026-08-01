@@ -49,3 +49,22 @@ def test_csv_export_route(tmp_path: Path, monkeypatch) -> None:
     assert response.status_code == 200
     assert response.mimetype == "text/csv"
     assert b"session_id,charger_id,charger_name" in response.data
+
+
+def test_fleet_api_includes_live_dashboard_payload(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_sessions(tmp_path, monkeypatch)
+    app.config.update(TESTING=True)
+
+    with app.test_client() as client:
+        response = client.get("/api/fleet")
+
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert "chargers" in payload
+    assert "sessions" in payload
+    assert "statistics" in payload
+    assert "runs" in payload
