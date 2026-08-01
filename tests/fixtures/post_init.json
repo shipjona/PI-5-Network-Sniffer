@@ -1,0 +1,17 @@
+﻿{
+	"curDesign":	40,
+	"minCurrent":	7,
+	"ssidNameAP":	"Shipman-GRU",
+	"ssidPasswordAP":	"",
+	"ssidName":	"Shipman Mesh",
+	"ssidPassword":	"",
+	"httpUsername":	"",
+	"httpPassword":	"",
+	"WifiMode":	3,
+	"broadcastMode":	0,
+	"ESP_MAC":	"A0:B7:65:1F:53:1C",
+	"mac_bind":	1,
+	"STA_MAC":	"9a:25:4a:22:7a:1e",
+	"lang":	1,
+	"thirdPartyBackends":	0
+}

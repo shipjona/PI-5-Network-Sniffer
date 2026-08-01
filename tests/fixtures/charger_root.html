@@ -1,0 +1,989 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Grizzl-E</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" type="image/png" href="./favicon.ico"/>
+    <link rel="stylesheet" href="./css/bootstrap-grid.min.css">
+    <link rel="stylesheet" href="./css/chartist.min.css">
+    <link rel="stylesheet" type="text/css" href="./css/style-min.css">
+
+    <script src="js/chartist.min.js"></script>
+    <script src="./js/scriptIcons.js"></script>
+    <script src="./js/otherFunctions.js"></script>
+    <script src="./js/language.js"></script>
+    <script src="./js/EVSE.js"></script>
+    
+
+
+    <style>
+        svg-icon {
+            width: 2em;
+            display: block;
+            /*background: #3071A9;*/
+        }
+
+    </style>
+
+</head>
+
+<body onload="getDataInit()">
+
+
+<header class="test">
+    <div class="container-sm d-flex" id="ConnectionMessage" style="padding-top: 10px;">
+    </div>
+    <div class="info-header container-sm d-flex flex-column align-items-center">
+        <!-- First Row: Logo and Language Section -->
+        <div class="first-row d-flex align-items-center justify-content-center">
+            <div class="test">
+                <img src="images/logoW.png" alt="Logo" style="width: auto; min-height: 2rem; min-width: 2rem; max-width: 11rem; max-height:11rem; margin-top: 0.25em;">
+            </div>
+
+            <div class="language-section">
+                <select id="lang" name="lang">
+                    <option value="EN">EN</option>
+                    <option value="UA">UA</option>
+                    <option value="FR">FR</option>
+                    <option value="SP">SP</option>
+                </select>
+            </div>
+        </div>
+        <div class="second-row d-flex justify-content-around w-100">
+            <div class="info-header-tab" align="center" onclick="changeTab(0)">
+                <svg-icon is="cl-core-home-line" fill="white"></svg-icon>
+                <span id="tabNameMain">Status</span>
+            </div>
+    
+            <div class="info-header-tab" align="center" onclick="changeTab(1)">
+                <svg-icon is="cl-essential-alarm-clock-line" fill="white"></svg-icon>
+                <span id="tabNameTimer">Timer</span>
+            </div>
+    
+            <div class="info-header-tab" align="center" onclick="changeTab(2)">
+                <svg-icon is="eva_wifi" fill="white"></svg-icon>
+                <span id="tabNameSettings">Setup</span>
+            </div>
+    
+            <div class="info-header-tab" align="center" onclick="changeTab(3)">
+                <svg-icon is="cl-core-settings-line" fill="white"></svg-icon>
+                <span id="rowNameAdvanced">Advanced</span>
+            </div>
+        </div>
+        <div id="offlineDiv" style="display: none; color: red; padding-top: 10px; text-align: center; font-weight: bold;">
+            Offline
+        </div>
+    </div>
+    
+
+</header>
+    
+
+<div class="info-tabcontent fade container-sm">
+    <div class="row">
+        <div class="col-sm">
+            <div class="panel-name"><strong id="menuNameState">Condition</strong></div>
+            <div class="row">
+                <div class="col-5 greyRow" id="rowNameStatus">Status</div>
+                <div class="col-7 value greyRow" id='status-value'></div>
+
+                <div class="col-5" id="rowNameSubStatus">Limit status</div>
+                <div class="col-7 value" id='subStatus-value'></div>
+
+                <div class="col-8 greyRow" id="rowNameCarConnection">Plugged in</div>
+                <div class="col-4 value greyRow" id='pilot-value'></div>
+
+                <div class="col-5 " id="rowNameMeterV1">Voltage, V</div>
+                <div class="col-7 value " id='voltage-value'></div>
+
+                <div class="col-7 greyRow" id="rowNameMeterI1">Current, A</div>
+                <div class="col-5 value greyRow" id="current-value"></div>
+
+                <div class="col-7 " id="rowNameMeterPow">Power, kW</div>
+                <div class="col-5 value " id="power-value"></div>
+
+                <div class="col-8 greyRow" id="rowNameMeterTB">Relay temperature, Â°C</div>
+                <div class="col-4 value greyRow" id="temperatureBox-value"></div>
+
+                <div class="col-8 " id="rowNameMeterTP" hidden>Plug temperature, Â°Ð¡</div>
+                <div class="col-4 value " id="temperatureSocket-value" hidden></div>
+
+                <div class="col-7 "  id="rowNameStatisticsSE">Session, kWh</div>
+                <div class="col-5 value " id="session-energy-value"></div>
+
+                <div class="col-8 greyRow" id="rowNameStatisticsST">Session time</div>
+                <div class="col-4 value greyRow" id="session-time-value"></div>
+
+                <div class="col-8 " id="rowNameStatisticsSC">Session cost</div>
+                <div class="col-4 value " id="session-money-value"></div>
+
+                <div class="col-6 greyRow" id="rowNameCurrentTarif">Rate</div>
+                <div class="col-6 value greyRow" id="usedTarif"></div>
+
+                <div class="col-7 " id="rowNameStatisticsTE">Total, kWâh</div>
+                <div class="col-5 value" id="total-energy-value"></div>
+
+                <div class="col-7" id="rowNameStatusPE" hidden>Protective earth</div>
+                <div class="col-5 value" id="controlPE-value" hidden></div>
+
+                <div class="col-7 greyRow" id="rowNameMeterCL" hidden>Leakage, mA</div>
+                <div class="col-5 value greyRow" id="leak-value" hidden>-</div>
+            </div>
+        </div>
+
+        <div class="col-sm">
+            <div class="panel-name"><strong id="menuNameSettings">Adjustments</strong></div>
+            <div class="row">
+                <div class="col-9" id="rowNameSettingsCurrentLim">Current limit, A</div>
+                <div class="col-3 value" id="maxcurrent-value"></div>
+            </div>
+            <input class="dataList" type="range" id="current-limit" min="7" max="32" value="7" class="range">
+
+
+            <!-- <div class="row">
+                <div class="col-10 days" id="rowNameSettingsStopCharging">Stop charging</div>
+                <div class="col-2 d-flex align-self-center">
+                    <label class="switch">
+                        <input class="dataList" type="checkbox" id='evseEnabled'>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div id="adapterSection" style="display: none;">
+                    <div class="col-10 days" id="rowNameSettingsAdapterChange" style="color: red;">120V Adapter TT30</div>
+                    <div class="col-2 d-flex align-self-center">
+                        <label class="switch">
+                            <input class="dataList" type="checkbox" id="adapterEnabled">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+            </div> -->
+
+            <div class="row">
+                <div class="col-10 days" id="rowNameSettingsStopCharging">Stop charging</div>
+                <div class="col-2 d-flex align-self-center">
+                    <label class="switch">
+                        <input class="dataList" type="checkbox" id='evseEnabled'>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+            <div class="row" id="adapterSection" style="visibility: hidden;">
+                <div class="col-10 days" id="rowNameSettingsAdapterChange" style="color: red;">120 V Adapter 30 A</div>
+                <div class="col-2 d-flex align-self-center">
+                    <label class="switch">
+                        <input class="dataList" type="checkbox" id="adapterEnabled">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 panel-name"><strong id="menuNameIEMeters">Counters</strong></div>
+    <br>
+    <div class="row">
+        <div class="col-8 days" id="CounterAMessage"></div>
+        <div class="col-8 days greyRow"><strong id="rowNameIEMeterA">Counter A</strong></div>
+        <div class="col-4 d-flex justify-content-end value days greyRow">
+            <button class="btn1" id="btn-IEM-1"><span id="btnNameResetIEMeterA">Reset</span></button>
+        </div>
+        <div class="col-8 days" id="rowNameIEEnergyA">Energy, kWâh</div>
+        <div class="col-4 value justify-content-center days" id="IEM-1-value"></div>
+        <div class="col-8 days" id="rowNameIECostA"> Cost </span></div>
+        <div class="col-4 value justify-content-center days" id="IEM-1-money"></div>
+
+    </div>
+    <br>
+    <div class="row">
+        <div class="col-8 days" id="CounterBMessage"></div>
+        <div class="col-8 days greyRow"><strong id="rowNameIEMeterB">Counter B</strong></div>
+        <div class="col-4 d-flex justify-content-end value days greyRow">
+            <button class="btn1" id="btn-IEM-2"><span id="btnNameResetIEMeterB">Reset</span></button>
+        </div>
+        <div class="col-8 days" id="rowNameIEEnergyB">Energy, kWâh</div>
+        <div class="col-4 value justify-content-center days" id="IEM-2-value"></div>
+        <div class="col-8 days" id="rowNameIECostB"> Cost </span></div>
+        <div class="col-4 value justify-content-center days" id="IEM-2-money"></div>
+    </div>
+    <br>
+    <div class="col-12 panel-name"><strong id="menuNameCharts">Chart`s</strong></div>
+
+
+    <div class="ct-chart ct-golden-section container-sm" id="gridVoltage"></div>
+    <div class="ct-chart ct-golden-section container-sm" id="current"></div>
+    <div class="ct-chart ct-golden-section container-sm" id="temps"></div>
+</div>
+<!-- Main -->
+
+<div class="info-tabcontent fade">
+    <div class="container-sm">
+
+        <!-- ÐÐ°ÑÑÐ´Ð¸ÑÐ¸ Ð·Ð°ÑÐ°Ð· -->
+        <div class="col-12 panel-name"><strong id="menuNameChargeNow">Charge now</strong></div>
+        <div class="col-12 d-flex align-self-center">&nbsp</div>
+        <div class="row">
+            <div class="col-10 days " id="rowNameSettingsDisableLimits">Avoid limits</div>
+            <div class="col-2 d-flex align-self-center">
+                <label class="switch">
+                    <input class="suspend-limits-switch" type="checkbox" id='suspend-limits-switch'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="col-10 days" id="rowNameSettingsOneCharge">Avoid limits one charge</div>
+            <div class="col-2 d-flex align-self-center">
+                <label class="switch">
+                    <input class="suspend-limits-switch" type="checkbox" id='suspend-one-charge-switch'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- ÐÑÐ¼ÑÑÐ¸ -->
+        <div class="col-12 panel-name"><strong id="menuNameLimits">Limitations</strong></div>
+        <div class="col-12 d-flex align-self-center">&nbsp</div>
+        <div class="row">
+            <div class="col-7"><strong id="rowNameLimitTime">Time limit</strong></div>
+            <div class="col-2 d-flex align-self-center justify-content-center" id='time-limit-value'></div>
+            <div class="col-3 d-flex align-self-center">
+                <label class="switch">
+                    <input type="checkbox" id='isTimeLimit'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <input type="range" id="time-limit" min="0" max="86399" step="60" value="0" class="range">
+            <div class="col-7"><strong id="rowNameLimitEnergy">Energy limit, kWâh</strong></div>
+            <div class="col-2 d-flex align-self-center justify-content-center" id='energy-limit-value'></div>
+            <div class="col-3 d-flex align-self-center">
+                <label class="switch">
+                    <input type="checkbox" id='isEnergyLimit'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <input type="range" id="energy-limit" min="0" max="1000" step="1" value="0" class="range">
+            <div class="col-7"><strong id="rowNameLimitCost">Money limit</strong></div>
+            <div class="col-2 d-flex align-self-center justify-content-center" id='money-limit-value'></div>
+            <div class="col-3 d-flex align-self-center">
+                <label class="switch">
+                    <input type="checkbox" id='isMoneyLimit'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <input type="range" id="money-limit" min="0" max="20000" step="100" value="0" class="range">
+        </div>
+
+        <div class="col-12 d-flex align-self-center">&nbsp</div>
+
+
+        <!-- Ð¢Ð°ÑÐ¸ÑÐ¸ -->
+        <div class="col-12 panel-name"><strong id="menuNameTarif">Rates</strong></div>
+
+        <div class="row">
+            <div class="col-6 d-flex align-self-center days"><strong id="rowNameUsedTarif">Active rate</strong></div>
+            <div class="col-6 value days">
+                <span id="usedTarif"></span>
+            </div>
+        </div>
+
+        <div class="row">
+
+            <div class="col-12 days"><strong id="rowNameTarif1">Primary rate</strong></div>
+
+            <div class="col-7 d-flex align-self-center days greyRow" id="btnNameSaveTarif0">Value</div>
+            <div class="col-5 value days greyRow">
+                <input type="number" class="tarif" id='tarif-1-value' inputmode="decimal" min="0.00" max="9999.99"
+                       step="0.01" value="1.00"/>
+            </div>
+
+        </div>
+
+        <div class="col-12 panel-name"><strong></strong></div>
+
+        <div class="row">
+            <div class="col-7 days"><strong id="rowNameTarifA">Rate 2</strong></div>
+            <div class="col-5 d-flex align-self-center greyRow">
+                <label class="switch">
+                    <input type="checkbox" id='tarif-A-switch'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="col-7 d-flex align-self-center days greyRow" id="btnNameSaveTarifA">Value</div>
+            <div class="col-5 value days greyRow">
+                <input type="number" class="tarif" id='tarif-A-value' inputmode="decimal" min="00.00" max="9999.99"
+                       step=".01" value="1.00"/>
+            </div>
+
+            <div class="col-7 d-flex align-self-center" id="rowNameTarifAStart">Start</div>
+            <div class="col-5 value">
+                <input type="time" id="tarif-A-start" value="00:00">
+            </div>
+
+            <div class="col-7  d-flex align-self-center greyRowP10" id="rowNameTarifAStop">Stop</div>
+            <div class="col-5 value greyRow">
+                <input type="time" id="tarif-A-stop" value="00:00">
+            </div>
+
+        </div>
+
+        <div class="col-12 panel-name"><strong></strong></div>
+
+        <div class="row">
+
+            <div class="col-7 days"><strong id="rowNameTarifB">Rate 3</strong></div>
+            <div class="col-5 d-flex align-self-center greyRow">
+                <label class="switch">
+                    <input type="checkbox" id='tarif-B-switch'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+
+            <div class="col-7 d-flex align-self-center days greyRow" id="btnNameSaveTarifB">Value</div>
+            <div class="col-5 value days greyRow">
+                <input type="number" class="tarif" id='tarif-B-value' inputmode="decimal" min="00.00" max="9999.99"
+                       step=".01" value="1.00"/>
+            </div>
+
+            <div class="col-7 d-flex align-self-center" id="rowNameTarifBStart">Start</div>
+            <div class="col-5 value">
+                <input type="time" id="tarif-B-start" value="00:00">
+            </div>
+            <div class="col-7  d-flex align-self-center greyRowP10" id="rowNameTarifBStop">Stop</div>
+            <div class="col-5 value greyRow">
+                <input type="time" id="tarif-B-stop" value="00:00">
+            </div>
+            <div class="col-11 d-flex justify-content-md-end">
+                <button class="btn" id='btnSaveRates'><span id="btnSaveRates">Save</span></button>
+            </div>
+        </div>
+        <div class="col-12 d-flex align-self-center">&nbsp</div>
+        <div class="col-12 d-flex align-self-center">&nbsp</div>
+
+        <!-- Ð Ð¾Ð·ÐºÐ»Ð°Ð´ -->
+        <div class="col-12 panel-name"><strong id="menuNameSchedule">Schedule</strong></div>
+
+        <div class="row">
+            <div class="col-10 days "><strong id="rowNameSchedule1">Primary schedule</strong></div>
+            <div class="col-2 d-flex align-self-center">
+                <label class="switch">
+                    <input class="sch-1-switch" type="checkbox" id='sch-1-switch'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div id="sch-1-content">
+            <div class="row brdr">
+                <div class="col-7 d-flex align-self-center" id="rowNameSchedule1Start">Start</div>
+                <div class="col-5 value">
+                    <input type="time" id="sch-1-start-time" value="23:00">
+                </div>
+                <div class="col-7  d-flex align-self-center greyRowP10" id="rowNameSchedule1Stop">Stop</div>
+                <div class="col-5 value greyRow">
+                    <input type="time" id="sch-1-stop-time" value="07:00">
+                </div>
+                
+                <div class="col-7 d-flex align-self-center">&nbsp</div>
+
+
+                <div class="col-7"><strong id="rowNameSchedule1EnergyLim">Energy limit 1, kWtâh</strong></div>
+                <div class="col-2 d-flex align-self-center justify-content-center" id='sch-1-energy-limit-value'></div>
+                <div class="col-3 d-flex align-self-center">
+                    <label class="switch">
+                        <input type="checkbox" id='is-sch-1-energy-limit'>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <input type="range" id="sch-1-energy-limit" min="0" max="1000" step="1" value="100" class="range">
+
+                <div class="col-7"><strong id="rowNameSchedule1CurrentLim">Current limit 1, A</strong></div>
+                <div class="col-2 d-flex align-self-center justify-content-center" id='sch-1-current-limit-value'></div>
+                <div class="col-3 d-flex align-self-center">
+                    <label class="switch">
+                        <input type="checkbox" id='is-sch-1-current-limit'>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <input type="range" id="sch-1-current-limit" min="7" max="32" step="1" value="16" class="range">
+
+                <div class="col-7 d-flex align-self-center ">&nbsp</div>
+
+            </div>
+        </div>
+
+        <div class="col-12 panel-name"><strong></strong></div>
+
+        <div class="row">
+            <div class="col-10 days"><strong id="rowNameSchedule2">Secondary schedule</strong></div>
+            <div class="col-2 d-flex align-self-center">
+                <label class="switch">
+                    <input class="sch-2-switch" type="checkbox" id='sch-2-switch'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div id="sch-2-content">
+            <div class="row brdr">
+                <div class="col-7 d-flex align-self-center" id="rowNameSchedule2Start">Start</div>
+                <div class="col-5 value">
+                    <input type="time" id="sch-2-start-time" value="23:00">
+                </div>
+                <div class="col-7  d-flex align-self-center greyRowP10" id="rowNameSchedule2Stop">Stop</div>
+                <div class="col-5 value greyRow">
+                    <input type="time" id="sch-2-stop-time" value="07:00">
+                </div>
+                <div class="col-7 d-flex align-self-center">&nbsp</div>
+
+                <div class="col-7"><strong id="rowNameSchedule2EnergyLim">Energy limit 2, kWtâh</strong></div>
+                <div class="col-2 d-flex align-self-center justify-content-center" id='sch-2-energy-limit-value'></div>
+                <div class="col-3 d-flex align-self-center">
+                    <label class="switch">
+                        <input type="checkbox" id='is-sch-2-energy-limit'>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <input type="range" id="sch-2-energy-limit" min="0" max="1000" step="1" value="100" class="range">
+
+                <div class="col-7"><strong id="rowNameSchedule2CurrentLim">Current limit 2, A</strong></div>
+                <div class="col-2 d-flex align-self-center justify-content-center" id='sch-2-current-limit-value'></div>
+                <div class="col-3 d-flex align-self-center">
+                    <label class="switch">
+                        <input type="checkbox" id='is-sch-2-current-limit'>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <input type="range" id="sch-2-current-limit" min="7" max="32" step="1" value="16" class="range">
+            </div>
+        </div>
+        <div class="col-12 d-flex align-self-center">&nbsp</div>
+
+        <!-- Ð¡Ð¸ÑÑÐµÐ¼Ð½Ð¸Ð¹ ÑÐ°Ñ -->
+        <div class="col-12 panel-name"><strong id="menuNameSysTime">System time</strong></div>
+        <div class="row">
+            <div class="col-12 d-flex justify-content-center">
+                <span><b style="color:red;" id="TimeMessage">System time unavaliable. Please check battery, or contact service.</b></span>
+            </div>
+
+            <div class="col-6 d-flex align-self-center" id="rowNameSysTime">Current time</div>
+            <div class="col-6 value">
+                <input readonly type="time" id="systemTime" value="12:30" step="1">
+            </div>
+            <div class="col-7 d-flex align-self-center greyRowP10" id="rowNameSysTimeZone">Time zone</div>
+            <div class="col-5 value greyRow">
+                <input type="text" id="timeZone" value="0" size="4">
+            </div>
+        </div>
+        <div class="container-sm">
+            <button class="btn2" id='btn-getTime'><span id="btnNameSysTimeUpdate">Update time</span></button>
+        </div>
+
+        <div class="container-sm">
+            <button class="btn2" id="chargeNow"><span
+                    id="btnNameResetLimits">Reset limits and schedules settings</span></button>
+        </div>
+    </div>
+</div>
+<!-- Timer -->
+
+<div class="info-tabcontent fade">
+    <div class="container-sm">
+        <div class="col-12 panel-name"><strong id="menuNameWifi">WiFi AP Configuration</strong></div>
+
+        <div class="row">
+
+            <div class="col-5 days"><strong id="rowNameBroadcastAP">Broadcast AP</strong></div>
+            <div class="col-7 d-flex align-self-center">
+                <label class="switch">
+                    <input class="dataList" type="checkbox" id='broadcastMode' name="broadcastMode">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="col-5 align-self-center" id="rowNameWifiAPName">AP Name</div>
+            <div class="col-7 value">
+                <input type="text" id="ssidNameAP" size="12">
+            </div>
+            <div class="col-5 align-self-center greyRowP10" id="rowNameWifiAPPass">AP Password</div>
+            <div class="col-7 value greyRowPass">
+                <input type="password" id="ssidPasswordAP" size="12" maxlength="100">
+                <button id="togglePassword" class="toggle-password-button">
+                    <svg id="eye-icon-open" style="padding-right: 0px;" width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5C5.63636 5 2 12 2 12C2 12 5.63636 19 12 19C18.3636 19 22 12 22 12C22 12 18.3636 5 12 5Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                        <svg id="eye-icon-closed" style="display: none; padding-right: 0px;" width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20 14.8335C21.3082 13.3317 22 12 22 12C22 12 18.3636 5 12 5C11.6588 5 11.3254 5.02013 11 5.05822C10.6578 
+                            5.09828 10.3244 5.15822 10 5.23552M12 9C12.3506 9 12.6872 9.06015 13 9.17071C13.8524 9.47199 14.528 10.1476 14.8293 
+                            11C14.9398 11.3128 15 11.6494 15 12M3 3L21 21M12 15C11.6494 15 11.3128 14.9398 11 14.8293C10.1476 14.528 9.47198 13.8524 
+                            9.1707 13C9.11386 12.8392 9.07034 12.6721 9.04147 12.5M4.14701 9C3.83877 9.34451 3.56234 9.68241 3.31864 10C2.45286 11.1282 
+                            2 12 2 12C2 12 5.63636 19 12 19C12.3412 19 12.6746 18.9799 13 18.9418" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                </button>
+            </div>
+            
+            
+            <div class="col-5 align-self-center greyRowP10" id="rowNameWifiAPPassConf">Confirm password</div>
+            <div class="col-7 value greyRowPass">
+                <input type="password" id="ssidPasswordAPConfirm" size="12" maxlength="100">
+                <button id="togglePasswordConf" class="toggle-password-button">
+                    <svg id="eye-icon-open-pass-conf" style="padding-right: 1px;" width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5C5.63636 5 2 12 2 12C2 12 5.63636 19 12 19C18.3636 19 22 12 22 12C22 12 18.3636 5 12 5Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <svg id="eye-icon-closed-pass-conf" style="display: none; padding-right: 0px; " width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 14.8335C21.3082 13.3317 22 12 22 12C22 12 18.3636 5 12 5C11.6588 5 11.3254 5.02013 11 5.05822C10.6578 
+                        5.09828 10.3244 5.15822 10 5.23552M12 9C12.3506 9 12.6872 9.06015 13 9.17071C13.8524 9.47199 14.528 10.1476 14.8293 
+                        11C14.9398 11.3128 15 11.6494 15 12M3 3L21 21M12 15C11.6494 15 11.3128 14.9398 11 14.8293C10.1476 14.528 9.47198 13.8524 
+                        9.1707 13C9.11386 12.8392 9.07034 12.6721 9.04147 12.5M4.14701 9C3.83877 9.34451 3.56234 9.68241 3.31864 10C2.45286 11.1282 
+                        2 12 2 12C2 12 5.63636 19 12 19C12.3412 19 12.6746 18.9799 13 18.9418" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="col-12 d-flex justify-content-center">
+                <span id="WiFiAPSaveMessage"></span>
+            </div>
+
+            <div class="col-7 d-flex justify-content-center">
+                <div></div>
+            </div>
+            <div class="col-5 d-flex justify-content-md-end">
+                <button class="btn" id='btnSaveAP'><span id="btnNameWifiAPSave">Save</span></button>
+            </div>
+        </div>
+        <br>
+    </div>
+
+    <div class="container-sm">
+        <div class="col-12 panel-name"><strong id="menuNameWifiSTA">Local WiFi configuration</strong></div>
+
+        <div class="row">
+            <div class="col-10 days"><strong id="rowNameWifiSTAConnect">Connection</strong></div>
+            <div class="col-2 d-flex align-self-center">
+                <label class="switch">
+                    <input class="netWifiMode" type="checkbox" id='netWifiMode'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-5 align-self-center" id="rowNameWifiSTAName">WiFi Name</div>
+            <div class="col-7 value">
+                <input type="text" id="ssidName" size="12" maxlength="100">
+            </div>
+            <div class="col-5 align-self-center greyRowP10" id="rowNameWifiSTAPass">WiFi Password</div>
+            <div class="col-7 value greyRowPass">
+                <input type="password" id="ssidPassword" size="12" maxlength="100">
+                <button id="toggleSsidPassword" class="toggle-password-button">
+                    <svg id="eye-icon-open-pass-net" style="padding-right: 1px;" width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5C5.63636 5 2 12 2 12C2 12 5.63636 19 12 19C18.3636 19 22 12 22 12C22 12 18.3636 5 12 5Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <svg id="eye-icon-closed-pass-net" style="display: none; padding-right: 0px; " width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 14.8335C21.3082 13.3317 22 12 22 12C22 12 18.3636 5 12 5C11.6588 5 11.3254 5.02013 11 5.05822C10.6578 
+                        5.09828 10.3244 5.15822 10 5.23552M12 9C12.3506 9 12.6872 9.06015 13 9.17071C13.8524 9.47199 14.528 10.1476 14.8293 
+                        11C14.9398 11.3128 15 11.6494 15 12M3 3L21 21M12 15C11.6494 15 11.3128 14.9398 11 14.8293C10.1476 14.528 9.47198 13.8524 
+                        9.1707 13C9.11386 12.8392 9.07034 12.6721 9.04147 12.5M4.14701 9C3.83877 9.34451 3.56234 9.68241 3.31864 10C2.45286 11.1282 
+                        2 12 2 12C2 12 5.63636 19 12 19C12.3412 19 12.6746 18.9799 13 18.9418" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+
+        </div>
+        <div class="row">
+            <div class="col-10 days"><strong id="rowNameWifiSTAMACBind">Connect by ÐÐC address</strong></div>
+            <div class="col-2 d-flex align-self-center">
+                <label class="switch">
+                    <input class="netWifiMode" type="checkbox" id='bind-MAC'>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="col-5 align-self-center greyRowP10" id="rowNameWifiSTAMACRouter">MAC address of the router</div>
+            <div class="col-7 value greyRow">
+                <input type="text" id="STA-MAC" size="12" >
+            </div>
+        </div>
+        <div class="col-12 panel-name"><strong id="rowNameWifiSTAScanResult">Available networks</strong></div>
+
+
+
+        <div class="row">
+            <div class="col-12 pt-1" id="textNetList">...</div>
+           
+            <div class="col-12 d-flex justify-content-center">
+                <span id="WiFiSTASaveMessage"></span>
+            </div>
+
+            <div class="col-7 d-flex justify-content-md-start">
+                <button class="btn" id="scanNet"><span id="btnNameWifiSTAScan">Search</span></button>
+            </div>
+
+            <div class="col-5 d-flex justify-content-md-end">
+                <button class="btn" id='btnSaveNet'><span id="btnNameWifiSTASave">Save</span></button>
+            </div>
+        </div>
+        <br>
+
+        <div class="col-12 panel-name"><strong id="menuNameWifiInfo">WiFi info</strong></div>
+
+        <div class="row">
+            <div class="col-5 align-self-center" id="rowNameWifiInfoIP">Local IP address</div>
+            <div class="col-7 value">
+                <input type="text" id="local_IP" size="12" disabled>
+            </div>
+            <div class="col-5 align-self-center greyRowP10" id="rowNameWifiInfoMAC">MAC address of the unit</div>
+            <div class="col-7 value greyRow">
+                <input type="text" id="ESP_MAC" size="12" disabled>
+            </div>
+        </div>
+        <br>
+        <div class="col-12 panel-name"><strong id="menuNameHTML">Page access</strong></div>
+        <div class="row">
+            <div class="col-5 align-self-center" id="rowNameHTMLName">Name</div>
+            <div class="col-7 value">
+                <input type="text" id="httpName" size="12">
+            </div>
+            <div class="col-5 align-self-center greyRowP10" id="rowNameHTMLPass">Password</div>
+            <div class="col-7 value greyRowPass">
+                <input type="password" id="httpPassword" size="12" maxlength="100">
+                <button id="toggleHttpPassword" class="toggle-password-button">
+                    <svg id="eye-icon-open-pass-http" style="padding-right: 0px;" width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5C5.63636 5 2 12 2 12C2 12 5.63636 19 12 19C18.3636 19 22 12 22 12C22 12 18.3636 5 12 5Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <svg id="eye-icon-closed-pass-http" style="display: none; padding-right: 0px; " width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 14.8335C21.3082 13.3317 22 12 22 12C22 12 18.3636 5 12 5C11.6588 5 11.3254 5.02013 11 5.05822C10.6578 
+                        5.09828 10.3244 5.15822 10 5.23552M12 9C12.3506 9 12.6872 9.06015 13 9.17071C13.8524 9.47199 14.528 10.1476 14.8293 
+                        11C14.9398 11.3128 15 11.6494 15 12M3 3L21 21M12 15C11.6494 15 11.3128 14.9398 11 14.8293C10.1476 14.528 9.47198 13.8524 
+                        9.1707 13C9.11386 12.8392 9.07034 12.6721 9.04147 12.5M4.14701 9C3.83877 9.34451 3.56234 9.68241 3.31864 10C2.45286 11.1282 
+                        2 12 2 12C2 12 5.63636 19 12 19C12.3412 19 12.6746 18.9799 13 18.9418" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="col-5 align-self-center greyRowP10" id="rowNameHTMLPassConf">Confirm password</div>
+            <div class="col-7 value greyRowPass">
+                <input type="password" id="httpPasswordConfirm" size="12" maxlength="100">
+                <button id="toggleHttpPasswordConfirm" class="toggle-password-button">
+                    <svg id="eye-icon-open-pass-http-conf" style="padding-right: 0px;" width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5C5.63636 5 2 12 2 12C2 12 5.63636 19 12 19C18.3636 19 22 12 22 12C22 12 18.3636 5 12 5Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <svg id="eye-icon-closed-pass-http-conf" style="display: none; padding-right: 0px; " width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 14.8335C21.3082 13.3317 22 12 22 12C22 12 18.3636 5 12 5C11.6588 5 11.3254 5.02013 11 5.05822C10.6578 
+                        5.09828 10.3244 5.15822 10 5.23552M12 9C12.3506 9 12.6872 9.06015 13 9.17071C13.8524 9.47199 14.528 10.1476 14.8293 
+                        11C14.9398 11.3128 15 11.6494 15 12M3 3L21 21M12 15C11.6494 15 11.3128 14.9398 11 14.8293C10.1476 14.528 9.47198 13.8524 
+                        9.1707 13C9.11386 12.8392 9.07034 12.6721 9.04147 12.5M4.14701 9C3.83877 9.34451 3.56234 9.68241 3.31864 10C2.45286 11.1282 
+                        2 12 2 12C2 12 5.63636 19 12 19C12.3412 19 12.6746 18.9799 13 18.9418" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+
+
+            <div class="col-12 d-flex justify-content-center">
+                <span id="HTMLSaveMessage"></span>
+            </div>
+
+            <div class="col-7 d-flex justify-content-center">
+                <div></div>
+            </div>
+            <div class="col-5 d-flex justify-content-md-end">
+                <button class="btn" id='btnSaveHttp'><span id="btnNameHTMLSave">Save</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Setup -->
+
+
+<div class="info-tabcontent fade container-sm">
+    <div class="row">
+        <div class="col-sm">
+            <div class="panel-name"><strong id="menuNameState2">Condition</strong></div>
+            <div class="row">
+                <div class="col-5" id="rowNameStatus2">Status</div>
+                <div class="col-7 value" id='status-value'></div>
+
+                <div class="col-5 greyRow" id="rowNameMeterV1_2">Voltage, V</div>
+                <div class="col-7 value greyRow" id='voltage-value'></div>
+                <div class="col-7" id="rowNameMeterI1_2">Current, A</div>
+                <div class="col-5 value" id="current-value"></div>
+                <div class="col-7 greyRow" id="rowNameMeterPow_2">Power, kW</div>
+                <div class="col-5 value greyRow" id="power-value"></div>
+
+                <div class="col-5" id="rowNameSettingsCurrentLim_2">Current limit, A</div>
+                <div class="col-7 value" id="maxcurrent-value"></div>
+
+            </div>
+            <br>
+
+            <div class="col-12 panel-name"><strong id="menuNameStatistics">Session history</strong></div>
+            <br>
+            <div class="row statisticRow">
+                <div class="col-3" id="rowNameStatisticsDate"><b>Date</b></div>
+                <div class="col-3" id="rowNameStatisticsEnergy"><b>Energy</b></div>
+                <div class="col-3" id="rowNameStatisticsTime"><b>Time</b></div>
+                <div class="col-3" id="rowNameStatisticsCost"><b>Money</b></div>
+            </div>
+            <div id="textLogs">
+                ...
+            </div>
+            <br>
+        </div>
+
+        <div class="col-sm">
+
+            <div class="panel-name"><strong id="menuNameSettingsAdaptive">Adaptive Mode</strong></div>
+            <div class="row">
+
+                <div class="col-10 days" id="rowNameSettingsAdaptive">Adaptive mode</div>
+                <div class="col-2 d-flex align-self-center">
+                    <label class="switch">
+                        <input class="dataList" type="checkbox" id="AIMode" name="AIMode">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+
+                <div class="col-8 days" id="rowNameSettingsAdaptiveMode">Type</div>
+                <div class="col-4 d-flex align-self-center">
+                    <select id="AIModeSelect" name="AIModeSelect">
+                        <option value="AI_MODE_1">Voltage</option>
+                        <option value="AI_MODE_2" hidden>Auto</option>
+                        <option value="AI_MODE_3" hidden>Power</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div id="adaptation-voltage-block">
+                <div class="row">
+                    <div class="col-9" id="rowNameSettingsVoltageThreshold">Undervoltage threshold, V</div>
+                    <div class="col-3 value" id="voltage-adaptive-value"></div>
+                </div>
+                <input class="dataList" type="range" id="voltage-adaptive" min="180" max="220" step="5" value="180"
+                       class="range">
+            </div>
+
+            <div id="adaptation-power-block">
+                <div class="row">
+                    <div class="col-7 ">Power drop, W</div>
+                    <div class="col-5 value " id='power-drop-val'>0</div>
+
+                    <div class="col-7 markRow">Power drop max, W</div>
+                    <div class="col-5 value markRow" id='power-drop-max'>200</div>
+                </div>
+            </div>
+
+            <div id="adaptation-auto-block">
+                <div class="row">
+                    <div class="col-7 ">Start voltage, V</div>
+                    <div class="col-5 value " id='voltage-start-val'>0</div>
+
+                    <div class="col-7 ">Voltage drop, %</div>
+                    <div class="col-5 value " id='voltage-drop-val'>0</div>
+
+
+                    <div class="col-12 panel-name markRow"><strong>Current reduce to voltage drop</strong></div>
+                    <div class="col-6 markRow">Voltage - 6 %</div>
+                    <div class="col-6 markRow">Current - 20 %</div>
+
+                    <div class="col-6 markRow">Voltage - 8 %</div>
+                    <div class="col-6 markRow">Current - 30 %</div>
+
+                    <div class="col-6 markRow">Voltage - 10 %</div>
+                    <div class="col-6 markRow">Current = minimal</div>
+
+                </div>
+            </div>
+
+
+            <div id="phase-imbalance-block" style="display: none;">
+                <div class="panel-name"><strong id="menuNamePhaseImbalanceSettings">Phase Imbalance</strong></div>
+                <div class="row">   
+                    <div class="col-10 days" id="rowNameSettingPhaseImbalance">Disable Imbalance Control</div>
+                    <div class="col-2 d-flex align-self-center">
+                        <label class="switch">
+                            <input class="dataList" type="checkbox" id="3PImbalance" name="3PImbalance">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+                <div id="3P-delta-slider-block">
+                    <div class="row">
+                        <div class="col-9" id="rowNameSettings3PMaxDelta">Max Delta Max</div>
+                        <div class="col-3 value" id="3p-max-delta"></div>
+                    </div>
+                    <input class="dataList" type="range" id="3p-delta" min="10" max="30" value="10" class="range">
+                </div>
+            </div>
+
+            
+            
+
+
+            <div class="panel-name"><strong id="menuNameOther">Other</strong></div>
+            <div class="row">
+
+                <div class="col-8  d-flex align-self-center">
+                    <label for="timerType" id="rowNameOtherTimerType">Timer type</label>
+                </div>
+                <div class="col-4 value timer-type-value align-self-right">
+                    <select id="timerType" name="timers">
+                        <option value="noPWM">noPWM</option>
+                        <option value="VAG">VW</option>
+                    </select>
+                </div>
+
+                <div class="col-8  d-flex align-self-center">
+                    <label for="minVoltage" id="rowNameOtherMinVoltage">Minimal voltage, V</label>
+                </div>
+                <div class="col-4 value timer-type-value align-self-right">
+                    <select id="minVoltage" name="min-Voltage">
+                        <option value="150">150</option>
+                        <option value="155">155</option>
+                        <option value="160">160</option>
+                        <option value="165">165</option>
+                        <option value="170">170</option>
+                        <option value="175">175</option>
+                        <option value="180">180</option>
+                        <option value="200">200</option>
+                    </select>
+                </div>
+
+
+                <div class="col-12 days" id="FactoryResetMessage"></div>
+                <div class="col-8 days" id="rowNameFactoryReset">Factory reset</div>
+                <div class="col-4 d-flex justify-content-end value days">
+                    <button class="btn1" id="btn-factoryReset"><span id="btnNameFactoryReset">Reset</span></button>
+                </div>
+            </div>
+
+
+
+            <br>         
+            <!-- <div class="panel-name"><strong id="menuNameFwUpdate">Firmware update</strong></div>
+            <div class="row">
+                <div class="col-8 align-self-center days">
+                    <span id="messageFwUpdate">Go to firmware update page:</span>
+                </div>
+                <div class="col-4 d-flex" style="justify-content:end">
+                    <button class="btn1" id='btnFwUpdate'><span id="btnNameFwUpdate">Switch</span></button>
+                </div>
+            </div> -->
+
+            <!-- <br>
+
+            <div class="col-12 panel-name"><strong id="menuNameStatistics">Session history</strong></div>
+            <br>
+            <div class="row statisticRow">
+                <div class="col-3" id="rowNameStatisticsDate"><b>Date</b></div>
+                <div class="col-3" id="rowNameStatisticsEnergy"><b>Energy</b></div>
+                <div class="col-3" id="rowNameStatisticsTime"><b>Time</b></div>
+                <div class="col-3" id="rowNameStatisticsCost"><b>Money</b></div>
+            </div>
+            <div id="textLogs">
+                ...
+            </div>
+            <br> -->
+
+           <!-- <div class="col-12 panel-name"><strong id="mnOCPPSetings">OCPP Settings</strong></div>
+            <div class="row">
+                
+            </div> -->
+            <!-- <div class="col-12 panel-name"><strong id="menuNameOCPPprovider">OCPP Settings</strong></div> -->
+            <div class="panel-name"><strong id="menuNameOCPPprovider">OCPP Settings</strong></div>
+
+                <div class="row">
+                    <!-- <div class="col-8 days" id="rowNameOCPPprovider" hidden>Name of Provider</div>
+                    <div class="col-4 d-flex align-self-center justify-content-end" hidden>
+                        <select id="ocppVendor" name="ocppVendor" hidden>
+                            <option value="0" id="selectOfflineOCPPprovider" hidden>Offline</option>
+                            <option value="1" hidden>Grizzl-E Connect</option>
+                            <option value="4" id="chargeLab" hidden>ChargeLab Commercial</option>
+                            <option value="2" hidden>EpicCharging</option> 
+                            <option value="3" hidden>ev.energy</option>
+                            <option value="5" hidden>SWTCH</option>
+                            
+                            <option value="255" id="selectCustomOCPPprovider" hidden>Custom</option>
+                        </select>
+                    </div> -->
+                    <div class="col-8 days" id="rnOCPPConnect">Connect to OCPP</div>
+                    <div class="col-4 days d-flex align-self-center justify-content-end">
+                        <label class="switch">
+                            <input type="checkbox" id='ocppEnabled'>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div class="col-8 days" id="rnOCPPOffline">Start charge offline</div>
+                    <div class="col-4 days d-flex align-self-center justify-content-end">
+                        <label class="switch">
+                            <input class="dataList" type="checkbox" id="ocppOfflineAva" name="ocppOfflineAva">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+        
+                    <div class="col-8 days greyRow" id="rnOCPPState">OCPP connected</div>
+                    <div class="col-4 days greyRow d-flex align-self-center justify-content-end" id='ocppConnected'>N/A</div>
+                </div>
+
+                <br>   
+
+                <div id="OCPP-config-block" style="display: none;">
+                    <!--<div class="panel-name"><strong id="menuNameOCPPConfig">OCPP Configuration</strong></div> -->
+                    <div class="row">
+                        <div class="col-8 align-self-center days">
+                            <span id="messageOCPPConfig">Go to OCPP Configuration Page:</span>
+                        </div>
+                        <div class="col-4 d-flex justify-content-end value days">
+                            <button class="btn1" id='btnOCPPConfig'><span id="btnNameOCPPConfig">Go to</span></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- <div class="col-12 d-flex justify-content-center"><strong id="rowOCPPproviderWarning" style="color: red;">Please connect to the Wi-Fi first</strong></div> -->
+            </div> 
+            <div id="popupModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); background: #ffffff; border-radius: 10px; border: 1px solid #ccc; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); padding: 20px; z-index: 1000; transition: transform 0.3s ease, opacity 0.3s ease; opacity: 0; width: 90%; max-width: 600px;"> <!-- Responsive width -->
+                <div style="text-align: center; font-size: 1.5rem; margin-bottom: 15px;" id="rowDescriptionPopup">
+                    <strong>Description</strong>
+                </div>
+                <div class="description" style="margin-bottom: 15px;">
+                    <!-- Dynamic description will be injected here -->
+                </div>
+                <div style="text-align: center; margin-top: 10px;">
+                    <a id="linkToApp" href="#" target="_blank" style="color: #007bff; text-decoration: none;">Link to Application</a>
+                </div>
+                <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 15px;"> <!-- Wrap for smaller screens -->
+                    <button id="popupSave" class="btn btn-primary" style="background-color: #007bff; border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer; flex: 1; max-width: 45%;">Save</button> <!-- Flexible button width -->
+                    <button id="popupCancel" class="btn btn-secondary" style="background-color: #6c757d; border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer; flex: 1; max-width: 45%;">Cancel</button>
+                </div>
+            </div>
+            
+            <div id="modalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 999; transition: opacity 0.3s ease; opacity: 0;"></div>
+
+    </div>
+
+</div>
+<!-- Advanced -->
+
+<footer class="container-sm">
+    <div class="row d-flex justify-content-center" id="verFWMain">
+        0
+    </div>
+    <div class="row d-flex justify-content-center" id="verFWWifi">
+        0
+    </div>
+    <div class="row d-flex justify-content-center" id="serialNum">
+        0
+    </div>
+</footer>
+
+<script src="./js/script.js"></script>    
+</body>
+
+</html>

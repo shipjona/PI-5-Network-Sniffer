@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ app_name }}</title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+    <style>
+        body { background: #f4f6f8; }
+        .dashboard-header { background: #212529; color: white; }
+        .panel {
+            border: 0;
+            box-shadow: 0 .125rem .5rem rgba(0, 0, 0, .08);
+        }
+        .status-dot {
+            width: .7rem;
+            height: .7rem;
+            display: inline-block;
+            border-radius: 50%;
+            margin-right: .35rem;
+        }
+        .status-online { background: #198754; }
+        .status-offline { background: #6c757d; }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: .8rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="dashboard-header py-4 mb-4">
+        <div class="container">
+            <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+                <div>
+                    <h1 class="h2 mb-1">{{ app_name }}</h1>
+                    <p class="mb-0 text-white-50">{{ site_name }}</p>
+                </div>
+                <div class="text-md-end">
+                    <button id="poll-button" class="btn btn-primary">
+                        Poll Fleet Now
+                    </button>
+                    <div id="refresh-status" class="small text-white-50 mt-2">
+                        Live refresh every 30 seconds
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container pb-5">
+        <section class="row g-3 mb-4">
+            <div class="col-6 col-xl-3">
+                <div class="card panel h-100">
+                    <div class="card-body">
+                        <div class="small text-secondary text-uppercase">Chargers</div>
+                        <div id="stat-chargers" class="display-6 fw-semibold">
+                            {{ statistics.charger_count }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-xl-3">
+                <div class="card panel h-100">
+                    <div class="card-body">
+                        <div class="small text-secondary text-uppercase">Online</div>
+                        <div id="stat-online" class="display-6 fw-semibold">
+                            {{ statistics.online_count }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-xl-3">
+                <div class="card panel h-100">
+                    <div class="card-body">
+                        <div class="small text-secondary text-uppercase">Sessions</div>
+                        <div id="stat-sessions" class="display-6 fw-semibold">
+                            {{ statistics.session_count }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-xl-3">
+                <div class="card panel h-100">
+                    <div class="card-body">
+                        <div class="small text-secondary text-uppercase">Known Energy</div>
+                        <div id="stat-energy" class="h3 fw-semibold mt-2 mb-0">
+                            {{ statistics.total_energy }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card panel mb-4">
+            <div class="card-header bg-white py-3">
+                <h2 class="h5 mb-0">Fleet Status</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Charger</th>
+                            <th>SSID</th>
+                            <th>Status</th>
+                            <th>HTTP</th>
+                            <th>Sessions</th>
+                            <th>Last Seen</th>
+                            <th>Last Error</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chargers-body">
+                        {% for charger in chargers %}
+                        <tr>
+                            <td><strong>{{ charger.charger_id }}</strong></td>
+                            <td>{{ charger.ssid }}</td>
+                            <td>
+                                <span class="status-dot {{ 'status-online' if charger.online else 'status-offline' }}"></span>
+                                {{ 'Online' if charger.online else 'Offline' }}
+                            </td>
+                            <td>{{ charger.http_status or '—' }}</td>
+                            <td>{{ charger.session_count }}</td>
+                            <td>{{ charger.last_seen_at or 'Never' }}</td>
+                            <td class="text-danger">{{ charger.last_error or '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card panel">
+            <div class="card-header bg-white py-3">
+                <h2 class="h5 mb-0">Recent Fleet Sessions</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Charger</th>
+                            <th>Session Start</th>
+                            <th>kWh</th>
+                            <th>Duration</th>
+                            <th>Cost</th>
+                            <th>Collected</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessions-body">
+                        {% for session in sessions %}
+                        <tr>
+                            <td><span class="badge text-bg-primary">{{ session.charger_id }}</span></td>
+                            <td class="text-nowrap">{{ session.session_start_local or '-' }}</td>
+                            <td>{{ session.energy_kwh if session.energy_kwh is not none else '-' }}</td>
+                            <td>{{ session.duration_text or '-' }}</td>
+                            <td>{{ session.cost if session.cost is not none else '-' }}</td>
+                            <td class="text-nowrap">{{ session.collected_at }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-secondary py-5">
+                                No fleet sessions have been collected yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const refreshStatus = document.getElementById("refresh-status");
+        const pollButton = document.getElementById("poll-button");
+
+        function escapeHtml(value) {
+            const element = document.createElement("div");
+            element.textContent = value ?? "";
+            return element.innerHTML;
+        }
+
+        function renderChargers(chargers) {
+            const body = document.getElementById("chargers-body");
+
+            body.innerHTML = chargers.map((charger) => `
+                <tr>
+                    <td><strong>${escapeHtml(charger.charger_id)}</strong></td>
+                    <td>${escapeHtml(charger.ssid)}</td>
+                    <td>
+                        <span class="status-dot ${charger.online ? "status-online" : "status-offline"}"></span>
+                        ${charger.online ? "Online" : "Offline"}
+                    </td>
+                    <td>${escapeHtml(charger.http_status ?? "—")}</td>
+                    <td>${escapeHtml(charger.session_count)}</td>
+                    <td>${escapeHtml(charger.last_seen_at ?? "Never")}</td>
+                    <td class="text-danger">${escapeHtml(charger.last_error ?? "—")}</td>
+                </tr>
+            `).join("");
+        }
+
+        function renderSessions(sessions) {
+            const body = document.getElementById("sessions-body");
+
+            if (!sessions.length) {
+                body.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-secondary py-5">
+                            No fleet sessions have been collected yet.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            body.innerHTML = sessions.map((session) => `
+                <tr>
+                    <td><span class="badge text-bg-primary">${escapeHtml(session.charger_id)}</span></td>
+                    <td class="text-nowrap">${escapeHtml(session.session_start_local ?? "-")}</td>
+                    <td>${escapeHtml(session.energy_kwh ?? "-")}</td>
+                    <td>${escapeHtml(session.duration_text ?? "-")}</td>
+                    <td>${escapeHtml(session.cost ?? "-")}</td>
+                    <td class="text-nowrap">${escapeHtml(session.collected_at)}</td>
+                </tr>
+            `).join("");
+        }
+
+        async function refreshFleet() {
+            const response = await fetch("/api/fleet", { cache: "no-store" });
+            if (!response.ok) {
+                throw new Error(`Fleet refresh failed: HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            document.getElementById("stat-chargers").textContent =
+                data.statistics.charger_count;
+            document.getElementById("stat-online").textContent =
+                data.statistics.online_count;
+            document.getElementById("stat-sessions").textContent =
+                data.statistics.session_count;
+            document.getElementById("stat-energy").textContent =
+                data.statistics.total_energy;
+
+            renderChargers(data.chargers);
+            renderSessions(data.sessions);
+
+            refreshStatus.textContent =
+                `Updated ${new Date().toLocaleTimeString()}`;
+        }
+
+        pollButton.addEventListener("click", async () => {
+            pollButton.disabled = true;
+            refreshStatus.textContent = "Polling fleet...";
+
+            try {
+                const response = await fetch("/api/poll", {
+                    method: "POST",
+                    cache: "no-store",
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Fleet poll failed");
+                }
+
+                await refreshFleet();
+            } catch (error) {
+                refreshStatus.textContent = error.message;
+            } finally {
+                pollButton.disabled = false;
+            }
+        });
+
+        refreshFleet().catch((error) => {
+            refreshStatus.textContent = error.message;
+        });
+
+        setInterval(() => {
+            refreshFleet().catch((error) => {
+                refreshStatus.textContent = error.message;
+            });
+        }, 30000);
+    </script>
+</body>
+</html>
