@@ -157,8 +157,10 @@ Pages:
 - `/` overview metrics, charger status, recent sessions, recent collection runs.
 - `/chargers` charger visibility, errors, manual collect action.
 - `/sessions` filters, pagination, CSV export.
-- `/vitals` Raspberry Pi temperature, CPU, memory, disk, uptime, throttling,
-  and trend summaries with adjustable ranges.
+- `/vitals` Raspberry Pi temperature, CPU, memory, disk, power/throttle flags,
+  Ethernet/wlan state, NVMe SMART health, service status, charger-polling
+  counters, storage growth estimates, and trend summaries with adjustable
+  ranges.
 - `/health` database, disk, NetworkManager, interface, time, and test-charger
   diagnostics.
 - `/settings` non-secret charger display/enable/target URL settings and report
@@ -174,6 +176,10 @@ CSV export endpoint:
 
 For the work-site appliance, the Pi can run without internet. It stores scan,
 collection, session, and failure data locally in SQLite.
+
+The Vitals page works offline. NVMe SMART fields require either `smartctl`
+from `smartmontools` or `nvme` from `nvme-cli`; if neither is installed, the
+dashboard shows those fields as unavailable without affecting charger logging.
 
 ## Storage Layout
 

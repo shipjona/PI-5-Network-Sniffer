@@ -88,3 +88,7 @@ def test_vitals_page_and_api_routes(tmp_path: Path, monkeypatch) -> None:
     assert "current" in payload
     assert "samples" in payload
     assert "trends" in payload
+    assert "sections" in payload
+    assert "power" in payload["sections"]
+    assert "network" in payload["sections"]
+    assert "polling" in payload["sections"]

@@ -5,7 +5,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -31,6 +31,81 @@ class SessionInsertResult:
     inserted: int
     duplicates: int
     rejected: int = 0
+
+
+SYSTEM_VITAL_EXTRA_COLUMNS: dict[str, str] = {
+    "swap_used_percent": "REAL",
+    "under_voltage_now": "INTEGER",
+    "under_voltage_ever": "INTEGER",
+    "frequency_capped_now": "INTEGER",
+    "frequency_capped_ever": "INTEGER",
+    "throttled_now": "INTEGER",
+    "throttled_ever": "INTEGER",
+    "soft_temp_limit_now": "INTEGER",
+    "soft_temp_limit_ever": "INTEGER",
+    "database_size_bytes": "INTEGER",
+    "logs_size_bytes": "INTEGER",
+    "backups_size_bytes": "INTEGER",
+    "nvme_smart_available": "INTEGER",
+    "nvme_temperature_c": "REAL",
+    "nvme_percentage_used": "REAL",
+    "nvme_power_on_hours": "INTEGER",
+    "nvme_unsafe_shutdowns": "INTEGER",
+    "nvme_data_written_bytes": "INTEGER",
+    "nvme_media_errors": "INTEGER",
+    "nvme_error_log_entries": "INTEGER",
+    "nvme_critical_warning": "INTEGER",
+    "nvme_smart_status": "TEXT",
+    "nvme_device": "TEXT",
+    "eth0_speed_mbps": "INTEGER",
+    "eth0_operstate": "TEXT",
+    "eth0_carrier": "INTEGER",
+    "eth0_rx_bytes": "INTEGER",
+    "eth0_tx_bytes": "INTEGER",
+    "eth0_rx_errors": "INTEGER",
+    "eth0_tx_errors": "INTEGER",
+    "eth0_rx_dropped": "INTEGER",
+    "eth0_tx_dropped": "INTEGER",
+    "wlan0_operstate": "TEXT",
+    "wlan0_connected_ssid": "TEXT",
+    "wlan0_signal_dbm": "INTEGER",
+    "wlan0_signal_percent": "INTEGER",
+    "wlan0_rx_bytes": "INTEGER",
+    "wlan0_tx_bytes": "INTEGER",
+    "wlan0_rx_errors": "INTEGER",
+    "wlan0_tx_errors": "INTEGER",
+    "wlan0_rx_dropped": "INTEGER",
+    "wlan0_tx_dropped": "INTEGER",
+    "approved_chargers_visible": "INTEGER",
+    "web_service_active_state": "TEXT",
+    "web_service_restart_count": "INTEGER",
+    "collector_service_active_state": "TEXT",
+    "collector_service_restart_count": "INTEGER",
+    "report_timer_active_state": "TEXT",
+    "report_timer_restart_count": "INTEGER",
+    "boot_time": "TEXT",
+    "reboot_count": "INTEGER",
+    "ntp_synchronized": "INTEGER",
+    "clock_synchronized": "INTEGER",
+    "root_filesystem_readonly": "INTEGER",
+    "data_filesystem_readonly": "INTEGER",
+    "filesystem_error_count": "INTEGER",
+}
+
+
+def _ensure_columns(
+    conn: sqlite3.Connection,
+    table: str,
+    columns: dict[str, str],
+) -> None:
+    """Add missing columns for lightweight SQLite migrations."""
+    existing = {
+        str(row["name"])
+        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    for name, definition in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
 
 
 @contextmanager
@@ -229,6 +304,7 @@ def initialize_database() -> None:
                 ON system_vitals(sampled_at);
             """
         )
+        _ensure_columns(conn, "system_vitals", SYSTEM_VITAL_EXTRA_COLUMNS)
         conn.execute(
             """
             INSERT OR IGNORE INTO schema_migrations (version, applied_at)
@@ -1341,6 +1417,7 @@ SYSTEM_VITAL_COLUMNS = (
     "memory_used_percent",
     "swap_total_bytes",
     "swap_free_bytes",
+    "swap_used_percent",
     "root_total_bytes",
     "root_free_bytes",
     "root_used_percent",
@@ -1349,6 +1426,61 @@ SYSTEM_VITAL_COLUMNS = (
     "data_used_percent",
     "uptime_seconds",
     "throttled_raw",
+    "under_voltage_now",
+    "under_voltage_ever",
+    "frequency_capped_now",
+    "frequency_capped_ever",
+    "throttled_now",
+    "throttled_ever",
+    "soft_temp_limit_now",
+    "soft_temp_limit_ever",
+    "database_size_bytes",
+    "logs_size_bytes",
+    "backups_size_bytes",
+    "nvme_smart_available",
+    "nvme_temperature_c",
+    "nvme_percentage_used",
+    "nvme_power_on_hours",
+    "nvme_unsafe_shutdowns",
+    "nvme_data_written_bytes",
+    "nvme_media_errors",
+    "nvme_error_log_entries",
+    "nvme_critical_warning",
+    "nvme_smart_status",
+    "nvme_device",
+    "eth0_speed_mbps",
+    "eth0_operstate",
+    "eth0_carrier",
+    "eth0_rx_bytes",
+    "eth0_tx_bytes",
+    "eth0_rx_errors",
+    "eth0_tx_errors",
+    "eth0_rx_dropped",
+    "eth0_tx_dropped",
+    "wlan0_operstate",
+    "wlan0_connected_ssid",
+    "wlan0_signal_dbm",
+    "wlan0_signal_percent",
+    "wlan0_rx_bytes",
+    "wlan0_tx_bytes",
+    "wlan0_rx_errors",
+    "wlan0_tx_errors",
+    "wlan0_rx_dropped",
+    "wlan0_tx_dropped",
+    "approved_chargers_visible",
+    "web_service_active_state",
+    "web_service_restart_count",
+    "collector_service_active_state",
+    "collector_service_restart_count",
+    "report_timer_active_state",
+    "report_timer_restart_count",
+    "boot_time",
+    "reboot_count",
+    "ntp_synchronized",
+    "clock_synchronized",
+    "root_filesystem_readonly",
+    "data_filesystem_readonly",
+    "filesystem_error_count",
 )
 
 
@@ -1357,9 +1489,30 @@ SYSTEM_VITAL_TREND_COLUMNS = (
     ("cpu_percent", "CPU Used", "%"),
     ("cpu_frequency_mhz", "CPU Frequency", "MHz"),
     ("load_1", "Load 1m", ""),
+    ("load_5", "Load 5m", ""),
+    ("load_15", "Load 15m", ""),
     ("memory_used_percent", "Memory Used", "%"),
+    ("swap_used_percent", "Swap Used", "%"),
     ("root_used_percent", "System Disk Used", "%"),
     ("data_used_percent", "Data Disk Used", "%"),
+    ("database_size_bytes", "Database Size", "bytes"),
+    ("logs_size_bytes", "Log Size", "bytes"),
+    ("backups_size_bytes", "Pi Backup Size", "bytes"),
+    ("nvme_temperature_c", "NVMe Temperature", "C"),
+    ("nvme_percentage_used", "NVMe Wear Used", "%"),
+    ("nvme_data_written_bytes", "NVMe Data Written", "bytes"),
+    ("eth0_speed_mbps", "Ethernet Speed", "Mb/s"),
+    ("eth0_rx_errors", "eth0 RX Errors", "count"),
+    ("eth0_tx_errors", "eth0 TX Errors", "count"),
+    ("eth0_rx_dropped", "eth0 RX Dropped", "count"),
+    ("eth0_tx_dropped", "eth0 TX Dropped", "count"),
+    ("wlan0_signal_percent", "wlan0 Signal", "%"),
+    ("wlan0_rx_errors", "wlan0 RX Errors", "count"),
+    ("wlan0_tx_errors", "wlan0 TX Errors", "count"),
+    ("approved_chargers_visible", "Approved Chargers Visible", "count"),
+    ("web_service_restart_count", "Web Service Restarts", "count"),
+    ("collector_service_restart_count", "Collector Restarts", "count"),
+    ("filesystem_error_count", "Kernel FS/I/O Errors", "count"),
 )
 
 
@@ -1447,6 +1600,222 @@ def summarize_system_vitals(*, since: str) -> list[dict[str, Any]]:
             )
 
     return trends
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _monitored_storage_bytes(row: sqlite3.Row | dict[str, Any] | None) -> int | None:
+    if row is None:
+        return None
+
+    total = 0
+    found = False
+    for key in ("database_size_bytes", "logs_size_bytes", "backups_size_bytes"):
+        value = row[key]
+        if value is None:
+            continue
+        total += int(value)
+        found = True
+
+    return total if found else None
+
+
+def get_vitals_operational_summary(*, since: str) -> dict[str, Any]:
+    """Return operational Pi and charger summaries for the Vitals page."""
+    initialize_database()
+
+    with connection() as conn:
+        state_rows = conn.execute(
+            "SELECT key, value, updated_at FROM service_state ORDER BY key"
+        ).fetchall()
+        collection = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_runs,
+                COALESCE(SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END), 0)
+                    AS successful_runs,
+                COALESCE(SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END), 0)
+                    AS failed_runs,
+                COALESCE(SUM(records_inserted), 0) AS records_inserted,
+                COALESCE(SUM(records_duplicate), 0) AS records_duplicate,
+                COALESCE(SUM(records_rejected), 0) AS records_rejected,
+                AVG(response_time_ms) AS average_response_time_ms
+            FROM collection_runs
+            WHERE started_at >= ?
+            """,
+            (since,),
+        ).fetchone()
+        error_types = conn.execute(
+            """
+            SELECT COALESCE(error_type, 'unknown') AS error_type, COUNT(*) AS count
+            FROM collection_runs
+            WHERE started_at >= ?
+              AND status != 'success'
+            GROUP BY COALESCE(error_type, 'unknown')
+            ORDER BY count DESC, error_type
+            LIMIT 8
+            """,
+            (since,),
+        ).fetchall()
+        last_success = conn.execute(
+            """
+            SELECT charger_id, completed_at, records_inserted, records_duplicate
+            FROM collection_runs
+            WHERE status = 'success'
+              AND completed_at IS NOT NULL
+            ORDER BY completed_at DESC, id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        last_failure = conn.execute(
+            """
+            SELECT charger_id, completed_at, error_type, error_message
+            FROM collection_runs
+            WHERE status != 'success'
+              AND completed_at IS NOT NULL
+            ORDER BY completed_at DESC, id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        observations = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS observation_count,
+                COUNT(DISTINCT observed_at) AS scan_count,
+                COUNT(DISTINCT CASE WHEN visible = 1 THEN charger_id END)
+                    AS chargers_seen,
+                COALESCE(SUM(CASE WHEN visible = 1 THEN 1 ELSE 0 END), 0)
+                    AS visible_observations
+            FROM charger_observations
+            WHERE observed_at >= ?
+            """,
+            (since,),
+        ).fetchone()
+        latest_visible = conn.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM chargers c
+            LEFT JOIN charger_observations o
+                ON o.id = (
+                    SELECT latest.id
+                    FROM charger_observations latest
+                    WHERE latest.charger_id = c.id
+                    ORDER BY latest.observed_at DESC, latest.id DESC
+                    LIMIT 1
+                )
+            WHERE c.enabled = 1
+              AND COALESCE(o.visible, 0) = 1
+            """
+        ).fetchone()
+        sessions = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_sessions,
+                MIN(session_start_local) AS oldest_session_start_local,
+                MAX(session_start_local) AS newest_session_start_local,
+                MIN(first_collected_at) AS first_collected_at,
+                MAX(first_collected_at) AS newest_collected_at
+            FROM sessions
+            """
+        ).fetchone()
+        first_storage = conn.execute(
+            """
+            SELECT sampled_at, database_size_bytes, logs_size_bytes,
+                   backups_size_bytes, data_free_bytes
+            FROM system_vitals
+            WHERE sampled_at >= ?
+            ORDER BY sampled_at ASC, id ASC
+            LIMIT 1
+            """,
+            (since,),
+        ).fetchone()
+        latest_storage = conn.execute(
+            """
+            SELECT sampled_at, database_size_bytes, logs_size_bytes,
+                   backups_size_bytes, data_free_bytes
+            FROM system_vitals
+            WHERE sampled_at >= ?
+            ORDER BY sampled_at DESC, id DESC
+            LIMIT 1
+            """,
+            (since,),
+        ).fetchone()
+
+    state = {
+        row["key"]: {"value": row["value"], "updated_at": row["updated_at"]}
+        for row in state_rows
+    }
+
+    first_total = _monitored_storage_bytes(first_storage)
+    latest_total = _monitored_storage_bytes(latest_storage)
+    first_at = _parse_iso_datetime(first_storage["sampled_at"] if first_storage else None)
+    latest_at = _parse_iso_datetime(latest_storage["sampled_at"] if latest_storage else None)
+    growth_bytes = None
+    growth_bytes_per_day = None
+    estimated_days_until_full = None
+    estimated_full_at = None
+
+    if (
+        first_total is not None
+        and latest_total is not None
+        and first_at is not None
+        and latest_at is not None
+        and latest_at > first_at
+    ):
+        growth_bytes = latest_total - first_total
+        elapsed_days = (latest_at - first_at).total_seconds() / 86400
+        if elapsed_days > 0 and growth_bytes > 0:
+            growth_bytes_per_day = growth_bytes / elapsed_days
+            free_bytes = (
+                int(latest_storage["data_free_bytes"])
+                if latest_storage and latest_storage["data_free_bytes"] is not None
+                else None
+            )
+            if free_bytes is not None:
+                estimated_days_until_full = free_bytes / growth_bytes_per_day
+                estimated_full_at = (
+                    latest_at + timedelta(days=estimated_days_until_full)
+                ).isoformat()
+
+    return {
+        "service_state": state,
+        "polling": {
+            "scan_count": int(observations["scan_count"] or 0),
+            "observation_count": int(observations["observation_count"] or 0),
+            "chargers_seen": int(observations["chargers_seen"] or 0),
+            "visible_observations": int(observations["visible_observations"] or 0),
+            "approved_visible_now": int(latest_visible["count"] or 0),
+            "total_runs": int(collection["total_runs"] or 0),
+            "successful_runs": int(collection["successful_runs"] or 0),
+            "failed_runs": int(collection["failed_runs"] or 0),
+            "records_inserted": int(collection["records_inserted"] or 0),
+            "records_duplicate": int(collection["records_duplicate"] or 0),
+            "records_rejected": int(collection["records_rejected"] or 0),
+            "average_response_time_ms": collection["average_response_time_ms"],
+            "last_success": dict(last_success) if last_success else None,
+            "last_failure": dict(last_failure) if last_failure else None,
+            "error_types": [dict(row) for row in error_types],
+        },
+        "sessions": dict(sessions) if sessions else {},
+        "storage_growth": {
+            "monitored_bytes_first": first_total,
+            "monitored_bytes_latest": latest_total,
+            "growth_bytes": growth_bytes,
+            "growth_bytes_per_day": growth_bytes_per_day,
+            "estimated_days_until_full": estimated_days_until_full,
+            "estimated_full_at": estimated_full_at,
+        },
+    }
 
 
 def list_report_runs(limit: int = 20) -> list[dict[str, Any]]:

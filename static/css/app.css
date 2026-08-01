@@ -317,6 +317,11 @@ select {
     color: var(--warning);
 }
 
+.pill-muted {
+    background: #eef2f5;
+    color: var(--muted);
+}
+
 .pill-error {
     background: #fdecea;
     color: var(--error);

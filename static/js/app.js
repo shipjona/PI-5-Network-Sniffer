@@ -261,6 +261,27 @@ function formatPercent(value) {
     return `${numeric.toFixed(1)}%`;
 }
 
+function formatBytes(value) {
+    if (value === null || value === undefined || value === "") {
+        return "-";
+    }
+
+    let numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return "-";
+    }
+
+    const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+    let index = 0;
+    while (Math.abs(numeric) >= 1024 && index < units.length - 1) {
+        numeric /= 1024;
+        index += 1;
+    }
+
+    const digits = index === 0 ? 0 : 1;
+    return `${numeric.toFixed(digits)} ${units[index]}`;
+}
+
 function formatSeconds(value) {
     const seconds = Number(value ?? 0);
     if (!Number.isFinite(seconds) || seconds <= 0) {
@@ -280,24 +301,92 @@ function formatSeconds(value) {
 }
 
 function formatTrendValue(value, unit) {
+    if (unit === "bytes") {
+        return formatBytes(value);
+    }
     if (unit === "%") {
         return formatPercent(value);
+    }
+    if (unit === "count") {
+        return formatNumber(value, 0);
     }
     if (unit === "MHz") {
         return formatNumber(value, 0, unit);
     }
-    return formatNumber(value, unit ? 2 : 2, unit);
+    if (unit === "Mb/s") {
+        return formatNumber(value, 0, unit);
+    }
+    if (unit === "C") {
+        return formatNumber(value, 1, unit);
+    }
+    return formatNumber(value, 2, unit);
 }
 
-function renderVitalsCurrent(current) {
+function renderVitalsCurrent(data) {
+    const current = data.current ?? {};
+    const sections = data.sections ?? {};
+    const powerRows = sections.power ?? [];
+    const reliabilityRows = sections.reliability ?? [];
+
     setText("vital-temperature", formatNumber(current.temperature_c, 1, "C"));
     setText("vital-cpu", formatPercent(current.cpu_percent));
     setText("vital-memory", formatPercent(current.memory_used_percent));
     setText("vital-data-disk", formatPercent(current.data_used_percent));
+    setText("vital-power", powerRows[0]?.value ?? "-");
+    setText("vital-eth-speed", formatNumber(current.eth0_speed_mbps, 0, "Mb/s"));
+    setText("vital-wlan-signal", formatPercent(current.wlan0_signal_percent));
+    setText("vital-nvme", current.nvme_smart_status || "Unavailable");
     setText("vital-load", formatNumber(current.load_1, 2));
     setText("vital-frequency", formatNumber(current.cpu_frequency_mhz, 0, "MHz"));
-    setText("vital-system-disk", formatPercent(current.root_used_percent));
-    setText("vital-throttle", current.throttled_raw || "-");
+    setText("vital-uptime", reliabilityRows[0]?.value ?? formatSeconds(current.uptime_seconds));
+    setText("vital-visible-chargers", current.approved_chargers_visible ?? "-");
+}
+
+function renderVitalsSection(id, rows) {
+    const body = document.getElementById(id);
+    if (!body) {
+        return;
+    }
+
+    if (!rows.length) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="3" class="empty">No data available.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    body.innerHTML = rows.map((row) => {
+        const statusClass = row.status ? `pill pill-${row.status}` : "";
+        const value = statusClass
+            ? `<span class="${escapeHtml(statusClass)}">${escapeHtml(row.value ?? "-")}</span>`
+            : escapeHtml(row.value ?? "-");
+
+        return `
+            <tr>
+                <td>${escapeHtml(row.label ?? "-")}</td>
+                <td>${value}</td>
+                <td>${escapeHtml(row.detail || "-")}</td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function renderVitalsSections(sections) {
+    const targets = {
+        power: "vitals-power-body",
+        network: "vitals-network-body",
+        nvme: "vitals-nvme-body",
+        storage: "vitals-storage-body",
+        services: "vitals-services-body",
+        reliability: "vitals-reliability-body",
+        polling: "vitals-polling-body",
+    };
+
+    Object.entries(targets).forEach(([section, id]) => {
+        renderVitalsSection(id, sections?.[section] ?? []);
+    });
 }
 
 function renderVitalsTrends(trends) {
@@ -327,7 +416,7 @@ function renderVitalsSamples(samples) {
     if (!samples.length) {
         body.innerHTML = `
             <tr>
-                <td colspan="9" class="empty">No vitals samples recorded yet.</td>
+                <td colspan="10" class="empty">No vitals samples recorded yet.</td>
             </tr>
         `;
         return;
@@ -338,12 +427,13 @@ function renderVitalsSamples(samples) {
             <td>${escapeHtml(sample.sampled_at)}</td>
             <td>${escapeHtml(formatNumber(sample.temperature_c, 1, "C"))}</td>
             <td>${escapeHtml(formatPercent(sample.cpu_percent))}</td>
-            <td>${escapeHtml(formatNumber(sample.load_1, 2))}</td>
             <td>${escapeHtml(formatPercent(sample.memory_used_percent))}</td>
-            <td>${escapeHtml(formatPercent(sample.root_used_percent))}</td>
+            <td>${escapeHtml(formatNumber(sample.eth0_speed_mbps, 0, "Mb/s"))}</td>
+            <td>${escapeHtml(formatPercent(sample.wlan0_signal_percent))}</td>
+            <td>${escapeHtml(sample.nvme_smart_status || "-")}</td>
             <td>${escapeHtml(formatPercent(sample.data_used_percent))}</td>
-            <td>${escapeHtml(formatSeconds(sample.uptime_seconds))}</td>
-            <td>${escapeHtml(sample.throttled_raw || "-")}</td>
+            <td>${sample.under_voltage_now || sample.throttled_now ? "Issue" : "OK"}</td>
+            <td>${escapeHtml(sample.approved_chargers_visible ?? "-")}</td>
         </tr>
     `).join("");
 }
@@ -382,7 +472,8 @@ function initializeVitalsAutoRefresh() {
             }
 
             const data = await response.json();
-            renderVitalsCurrent(data.current);
+            renderVitalsCurrent(data);
+            renderVitalsSections(data.sections ?? {});
             renderVitalsTrends(data.trends ?? []);
             renderVitalsSamples(data.samples ?? []);
             setVitalsRefreshStatus(`Updated ${new Date().toLocaleTimeString()}`);

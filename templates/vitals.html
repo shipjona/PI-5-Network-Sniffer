@@ -8,6 +8,40 @@
     {{ ("%%.%df" % digits)|format(value) if value is not none else "-" }}{{ (" " ~ unit) if value is not none and unit else "" }}
 {%- endmacro %}
 
+{% macro section_table(title, section_id, rows) -%}
+<section class="panel">
+    <div class="panel-header">
+        <h2>{{ title }}</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Current</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
+            <tbody id="{{ section_id }}">
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.label }}</td>
+                    <td>
+                        {% if row.status %}
+                        <span class="pill pill-{{ row.status }}">{{ row.value }}</span>
+                        {% else %}
+                        {{ row.value }}
+                        {% endif %}
+                    </td>
+                    <td>{{ row.detail or "-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{%- endmacro %}
+
 {% block content %}
 <section class="dashboard-live-bar vitals-toolbar" aria-live="polite">
     <label>
@@ -44,6 +78,25 @@
 
 <section class="metrics-grid">
     <article class="metric">
+        <span>Power</span>
+        <strong id="vital-power">{{ vitals.sections.power[0].value }}</strong>
+    </article>
+    <article class="metric">
+        <span>eth0 Speed</span>
+        <strong id="vital-eth-speed">{{ number(vitals.current.eth0_speed_mbps, 0, "Mb/s") }}</strong>
+    </article>
+    <article class="metric">
+        <span>wlan0 Signal</span>
+        <strong id="vital-wlan-signal">{{ percent(vitals.current.wlan0_signal_percent) }}</strong>
+    </article>
+    <article class="metric">
+        <span>NVMe SMART</span>
+        <strong id="vital-nvme">{{ vitals.current.nvme_smart_status or "Unavailable" }}</strong>
+    </article>
+</section>
+
+<section class="metrics-grid">
+    <article class="metric">
         <span>Load 1m</span>
         <strong id="vital-load">{{ number(vitals.current.load_1, 2) }}</strong>
     </article>
@@ -52,14 +105,31 @@
         <strong id="vital-frequency">{{ number(vitals.current.cpu_frequency_mhz, 0, "MHz") }}</strong>
     </article>
     <article class="metric">
-        <span>System Disk Used</span>
-        <strong id="vital-system-disk">{{ percent(vitals.current.root_used_percent) }}</strong>
+        <span>Uptime</span>
+        <strong id="vital-uptime">{{ vitals.sections.reliability[0].value }}</strong>
     </article>
     <article class="metric">
-        <span>Throttle Flags</span>
-        <strong id="vital-throttle">{{ vitals.current.throttled_raw or "-" }}</strong>
+        <span>Chargers Visible</span>
+        <strong id="vital-visible-chargers">{{ vitals.current.approved_chargers_visible if vitals.current.approved_chargers_visible is not none else "-" }}</strong>
     </article>
 </section>
+
+<div class="two-column vitals-sections">
+    {{ section_table("Power Stability", "vitals-power-body", vitals.sections.power) }}
+    {{ section_table("Network Health", "vitals-network-body", vitals.sections.network) }}
+</div>
+
+<div class="two-column vitals-sections">
+    {{ section_table("NVMe Health", "vitals-nvme-body", vitals.sections.nvme) }}
+    {{ section_table("Storage Growth", "vitals-storage-body", vitals.sections.storage) }}
+</div>
+
+<div class="two-column vitals-sections">
+    {{ section_table("Services", "vitals-services-body", vitals.sections.services) }}
+    {{ section_table("System Reliability", "vitals-reliability-body", vitals.sections.reliability) }}
+</div>
+
+{{ section_table("Charger Polling", "vitals-polling-body", vitals.sections.polling) }}
 
 <section class="panel">
     <div class="panel-header">
@@ -104,12 +174,13 @@
                     <th>Sampled</th>
                     <th>Temp</th>
                     <th>CPU</th>
-                    <th>Load</th>
                     <th>Memory</th>
-                    <th>System Disk</th>
+                    <th>eth0</th>
+                    <th>wlan0</th>
+                    <th>NVMe</th>
                     <th>Data Disk</th>
-                    <th>Uptime</th>
-                    <th>Throttle</th>
+                    <th>Power</th>
+                    <th>Visible</th>
                 </tr>
             </thead>
             <tbody id="vitals-samples-body">
@@ -118,16 +189,17 @@
                     <td>{{ sample.sampled_at }}</td>
                     <td>{{ number(sample.temperature_c, 1, "C") }}</td>
                     <td>{{ percent(sample.cpu_percent) }}</td>
-                    <td>{{ number(sample.load_1, 2) }}</td>
                     <td>{{ percent(sample.memory_used_percent) }}</td>
-                    <td>{{ percent(sample.root_used_percent) }}</td>
+                    <td>{{ sample.eth0_speed_mbps if sample.eth0_speed_mbps is not none else "-" }}</td>
+                    <td>{{ percent(sample.wlan0_signal_percent) }}</td>
+                    <td>{{ sample.nvme_smart_status or "-" }}</td>
                     <td>{{ percent(sample.data_used_percent) }}</td>
-                    <td>{{ sample.uptime_seconds if sample.uptime_seconds is not none else "-" }}</td>
-                    <td>{{ sample.throttled_raw or "-" }}</td>
+                    <td>{{ "Issue" if sample.under_voltage_now or sample.throttled_now else "OK" }}</td>
+                    <td>{{ sample.approved_chargers_visible if sample.approved_chargers_visible is not none else "-" }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9" class="empty">No vitals samples recorded yet.</td>
+                    <td colspan="10" class="empty">No vitals samples recorded yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
