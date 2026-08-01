@@ -1,7 +1,7 @@
 # Grizzl-E Charger Monitor
 
 Headless Raspberry Pi 5 appliance for monitoring approved Grizzl-E charger
-access points while keeping management traffic on Ethernet.
+access points while keeping management traffic on local Ethernet.
 
 ## Current Status
 
