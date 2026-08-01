@@ -9,7 +9,7 @@ from typing import Any
 
 import requests
 
-from grizzl.config import CHARGER_URL, DB_PATH, REQUEST_TIMEOUT_SECONDS
+from grizzl.config import CHARGERS, CHARGER_URL, DB_PATH, REQUEST_TIMEOUT_SECONDS
 from grizzl.database import connection, get_service_state, initialize_database
 
 
@@ -102,10 +102,21 @@ def check_interface(interface: str) -> HealthCheck:
         fields = line.split(":")
         if len(fields) >= 3 and fields[0] == interface:
             state = fields[2]
+            if interface == "wlan0" and state == "disconnected":
+                return HealthCheck(interface, "ok", "disconnected; idle")
             status = "ok" if state == "connected" else "warning"
             return HealthCheck(interface, status, state)
 
     return HealthCheck(interface, "warning", "interface not found")
+
+
+def _has_default_route() -> bool:
+    try:
+        result = _run(["ip", "route", "show", "default"])
+    except Exception:
+        return True
+
+    return result.returncode == 0 and bool(result.stdout.strip())
 
 
 def check_system_time() -> HealthCheck:
@@ -126,10 +137,23 @@ def check_system_time() -> HealthCheck:
     value = result.stdout.strip()
     if value == "yes":
         return HealthCheck("time", "ok", "NTP synchronized")
+    if not _has_default_route():
+        return HealthCheck(
+            "time",
+            "ok",
+            f"NTP synchronized: {value or 'unknown'}; offline mode",
+        )
     return HealthCheck("time", "warning", f"NTP synchronized: {value or 'unknown'}")
 
 
 def check_test_charger(url: str = CHARGER_URL) -> HealthCheck:
+    test_charger = next(
+        (charger for charger in CHARGERS if charger.get("test_charger")),
+        None,
+    )
+    if test_charger is not None and not test_charger.get("enabled", True):
+        return HealthCheck("test_charger", "ok", "disabled")
+
     try:
         response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
         detail = f"HTTP {response.status_code} at {url}"
