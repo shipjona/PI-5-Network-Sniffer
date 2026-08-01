@@ -10,7 +10,12 @@ from typing import Any
 import requests
 
 from grizzl.config import CHARGERS, CHARGER_URL, DB_PATH, REQUEST_TIMEOUT_SECONDS
-from grizzl.database import connection, get_service_state, initialize_database
+from grizzl.database import (
+    connection,
+    get_runtime_chargers,
+    get_service_state,
+    initialize_database,
+)
 
 
 @dataclass(frozen=True)
@@ -148,7 +153,11 @@ def check_system_time() -> HealthCheck:
 
 def check_test_charger(url: str = CHARGER_URL) -> HealthCheck:
     test_charger = next(
-        (charger for charger in CHARGERS if charger.get("test_charger")),
+        (
+            charger
+            for charger in get_runtime_chargers(CHARGERS)
+            if charger.get("test_charger")
+        ),
         None,
     )
     if test_charger is not None and not test_charger.get("enabled", True):

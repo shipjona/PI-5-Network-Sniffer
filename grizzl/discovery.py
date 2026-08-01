@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-from grizzl.config import CHARGERS
+from grizzl.database import get_runtime_chargers
 from grizzl.wifi import current_ssid, scan_configured_chargers, scan_ssids
 
 
 def configured_chargers() -> list[dict]:
-    """Return all enabled chargers from the fleet configuration."""
-    return [
-        charger
-        for charger in CHARGERS
-        if charger.get("enabled", True)
-    ]
+    """Return all enabled chargers from saved runtime configuration."""
+    return get_runtime_chargers(enabled_only=True)
 
 
 def discover_chargers() -> list[dict]:

@@ -12,6 +12,7 @@ from grizzl.config import (
     WIFI_INTERFACE,
     charger_password,
 )
+from grizzl.database import get_runtime_chargers
 
 NMCLI: Final = "nmcli"
 
@@ -242,10 +243,7 @@ def scan_configured_chargers() -> list[tuple[dict, WiFiObservation]]:
 
     matches: list[tuple[dict, WiFiObservation]] = []
 
-    for charger in CHARGERS:
-        if not charger.get("enabled", True):
-            continue
-
+    for charger in get_runtime_chargers(enabled_only=True):
         observation = observations_by_ssid.get(str(charger["ssid"]))
 
         if observation is not None:

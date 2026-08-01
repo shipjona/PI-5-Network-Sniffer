@@ -225,8 +225,6 @@ def upsert_charger(charger: dict[str, Any]) -> None:
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(charger_id) DO UPDATE SET
                 ssid = excluded.ssid,
-                url = excluded.url,
-                enabled = excluded.enabled,
                 test_charger = excluded.test_charger,
                 updated_at = excluded.updated_at
             """,
@@ -249,10 +247,7 @@ def upsert_charger(charger: dict[str, Any]) -> None:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 ssid = excluded.ssid,
-                display_name = excluded.display_name,
-                enabled = excluded.enabled,
                 environment = excluded.environment,
-                target_url = excluded.target_url,
                 expected_bssid = excluded.expected_bssid,
                 updated_at = excluded.updated_at
             """,
@@ -274,6 +269,48 @@ def sync_chargers(chargers: tuple[dict, ...] | list[dict]) -> None:
     initialize_database()
     for charger in chargers:
         upsert_charger(charger)
+
+
+def get_runtime_chargers(
+    chargers: tuple[dict, ...] | list[dict] = CHARGERS,
+    *,
+    enabled_only: bool = False,
+) -> list[dict[str, Any]]:
+    """
+    Return charger config merged with dashboard-editable database settings.
+
+    Static config remains the source for immutable fields and secret env names.
+    The database is authoritative for display_name, enabled, and target_url so
+    settings changed from the dashboard are not overwritten by config sync.
+    """
+    sync_chargers(chargers)
+    with connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, display_name, enabled, target_url
+            FROM chargers
+            """
+        ).fetchall()
+
+    saved_by_id = {int(row["id"]): row for row in rows}
+    merged_chargers: list[dict[str, Any]] = []
+
+    for charger in chargers:
+        numeric_id = int(charger.get("charger_id", 0))
+        merged = dict(charger)
+        saved = saved_by_id.get(numeric_id)
+
+        if saved is not None:
+            merged["display_name"] = saved["display_name"]
+            merged["enabled"] = bool(saved["enabled"])
+            merged["target_url"] = saved["target_url"]
+
+        if enabled_only and not merged.get("enabled", True):
+            continue
+
+        merged_chargers.append(merged)
+
+    return merged_chargers
 
 
 def save_charger_status(
@@ -553,13 +590,17 @@ def record_charger_observation(
 def record_scan_results(
     matches: list[tuple[dict[str, Any], Any]],
     *,
-    all_chargers: tuple[dict[str, Any], ...] | list[dict[str, Any]] = CHARGERS,
+    all_chargers: tuple[dict[str, Any], ...] | list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Record one scan pass, including offline rows for configured APs not visible.
     """
     initialize_database()
-    sync_chargers(all_chargers)
+    runtime_chargers = (
+        get_runtime_chargers()
+        if all_chargers is None
+        else get_runtime_chargers(all_chargers)
+    )
     observed_at = utc_now_iso()
     visible_by_id: dict[int, Any] = {
         int(charger.get("charger_id", 0)): observation
@@ -567,7 +608,7 @@ def record_scan_results(
     }
     rows: list[dict[str, Any]] = []
 
-    for charger in all_chargers:
+    for charger in runtime_chargers:
         if not charger.get("enabled", True):
             continue
 
@@ -863,7 +904,14 @@ def get_chargers_with_status() -> list[dict[str, Any]]:
             """
         ).fetchall()
 
-    return [dict(row) for row in rows]
+    chargers: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        for key in ("enabled", "test_charger", "online", "visible"):
+            item[key] = bool(item[key])
+        chargers.append(item)
+
+    return chargers
 
 
 def get_recent_sessions(
@@ -1161,7 +1209,7 @@ def update_charger_settings(
     initialize_database()
     now = utc_now_iso()
     with connection() as conn:
-        conn.execute(
+        cursor = conn.execute(
             """
             UPDATE chargers
             SET display_name = ?,
@@ -1176,6 +1224,23 @@ def update_charger_settings(
                 target_url.strip(),
                 now,
                 charger_id,
+            ),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError(f"Unknown charger_id {charger_id}")
+        conn.execute(
+            """
+            UPDATE fleet_chargers
+            SET enabled = ?,
+                url = ?,
+                updated_at = ?
+            WHERE charger_id = ?
+            """,
+            (
+                int(enabled),
+                target_url.strip(),
+                now,
+                f"CHARGER_{charger_id}",
             ),
         )
 

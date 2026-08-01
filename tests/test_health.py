@@ -87,8 +87,8 @@ def test_unsynchronized_time_is_ok_without_default_route(monkeypatch) -> None:
 def test_disabled_test_charger_health_check_is_ok(monkeypatch) -> None:
     monkeypatch.setattr(
         health,
-        "CHARGERS",
-        ({"test_charger": True, "enabled": False},),
+        "get_runtime_chargers",
+        lambda _chargers: [{"test_charger": True, "enabled": False}],
     )
 
     result = health.check_test_charger()
