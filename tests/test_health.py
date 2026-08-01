@@ -95,3 +95,34 @@ def test_disabled_test_charger_health_check_is_ok(monkeypatch) -> None:
 
     assert result.status == "ok"
     assert result.detail == "disabled"
+
+
+def test_test_charger_health_uses_saved_target_url(monkeypatch) -> None:
+    monkeypatch.setattr(
+        health,
+        "get_runtime_chargers",
+        lambda _chargers: [
+            {
+                "test_charger": True,
+                "enabled": True,
+                "target_url": "http://192.168.4.1",
+            }
+        ],
+    )
+
+    class Response:
+        status_code = 200
+        ok = True
+
+    called: dict[str, str] = {}
+
+    def fake_get(url, **_kwargs):
+        called["url"] = url
+        return Response()
+
+    monkeypatch.setattr(health.requests, "get", fake_get)
+
+    result = health.check_test_charger()
+
+    assert called["url"] == "http://192.168.4.1"
+    assert result.status == "ok"

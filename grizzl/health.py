@@ -151,7 +151,7 @@ def check_system_time() -> HealthCheck:
     return HealthCheck("time", "warning", f"NTP synchronized: {value or 'unknown'}")
 
 
-def check_test_charger(url: str = CHARGER_URL) -> HealthCheck:
+def check_test_charger(url: str | None = None) -> HealthCheck:
     test_charger = next(
         (
             charger
@@ -163,9 +163,15 @@ def check_test_charger(url: str = CHARGER_URL) -> HealthCheck:
     if test_charger is not None and not test_charger.get("enabled", True):
         return HealthCheck("test_charger", "ok", "disabled")
 
+    target_url = url or (
+        str(test_charger.get("target_url"))
+        if test_charger is not None and test_charger.get("target_url")
+        else CHARGER_URL
+    )
+
     try:
-        response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
-        detail = f"HTTP {response.status_code} at {url}"
+        response = requests.get(target_url, timeout=REQUEST_TIMEOUT_SECONDS)
+        detail = f"HTTP {response.status_code} at {target_url}"
         status = "ok" if response.ok else "warning"
         return HealthCheck("test_charger", status, detail)
     except requests.RequestException as exc:
