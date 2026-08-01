@@ -181,6 +181,12 @@ The Vitals page works offline. NVMe SMART fields require either `smartctl`
 from `smartmontools` or `nvme` from `nvme-cli`; if neither is installed, the
 dashboard shows those fields as unavailable without affecting charger logging.
 
+When the Pi has internet, install optional NVMe SMART tooling with:
+
+```bash
+sudo INSTALL_OPTIONAL_VITALS_TOOLS=1 bash scripts/install.sh
+```
+
 ## Storage Layout
 
 Current appliance layout:
