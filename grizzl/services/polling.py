@@ -262,6 +262,7 @@ def poll_once(*, include_wifi: bool = True) -> dict[str, Any]:
     if not chargers:
         logger.info("No configured charger SSIDs are currently visible.")
         set_service_state("collector_last_run_at", utc_now_iso())
+        set_service_state("collector_last_polled_count", "0")
         return {
             "status": "success",
             "mode": "ethernet-guarded-wifi-switching",
