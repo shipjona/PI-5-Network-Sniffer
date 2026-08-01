@@ -11,7 +11,8 @@ Implemented:
 - SQLite schema with `chargers`, `sessions`, `charger_observations`,
   `collection_runs`, `service_state`, and `report_runs`.
 - Duplicate prevention using `UNIQUE(charger_id, session_start_utc)`.
-- Direct test-charger polling at `http://192.168.68.166`.
+- Offline work-site collection with optional direct test-charger polling at
+  `http://192.168.68.166`.
 - Work-charger offline logging when approved SSIDs are not visible or Wi-Fi scan
   is unavailable.
 - NetworkManager/nmcli scanner using machine-readable output.
@@ -25,8 +26,8 @@ Implemented:
 - Pytest coverage for parser, database dedupe, scanner offline logging, CSV
   export, reports, routes, config, and Wi-Fi output parsing.
 
-The current source is safe for test-charger operation. Do not run live
-production Wi-Fi connection tests until Ethernet is confirmed on the Pi.
+The current source defaults to offline work-site operation. The home test
+charger is disabled unless `GRIZZL_ENABLE_TEST_CHARGER=1` is set.
 
 ## Approved Charger SSIDs
 
@@ -60,6 +61,7 @@ Required for production Wi-Fi:
 GRIZZL_PRODUCTION_WIFI_PASSWORD=...
 GRIZZL_TEST_WIFI_PASSWORD=...
 GRIZZL_FLASK_SECRET_KEY=...
+GRIZZL_ENABLE_TEST_CHARGER=0
 ```
 
 Required for email reports:
@@ -94,7 +96,7 @@ Run tests:
 python -m pytest
 ```
 
-Poll the test charger directly:
+Poll the home test charger directly when the Pi is on the home LAN:
 
 ```bash
 python scripts/test_scrape.py --charger-id 0
@@ -109,8 +111,8 @@ Run one collector cycle:
 python scripts/poll_once.py
 ```
 
-On a development PC without `nmcli`, this logs work chargers offline and still
-polls the direct test charger.
+On the offline work-site appliance, this scans for approved work chargers and
+stores local status/failure data without attempting the home test charger.
 
 Scan approved charger SSIDs on the Pi:
 
@@ -165,6 +167,50 @@ CSV export endpoint:
 ```text
 /export.csv?charger_id=0&start=2026-07-28T00:00:00-07:00&end=2026-08-02T00:00:00-07:00
 ```
+
+## Offline Data Pull Workflow
+
+For the work-site appliance, the Pi can run without internet. It stores scan,
+collection, session, and failure data locally in SQLite.
+
+Direct PC-to-Pi Ethernet settings:
+
+Windows Ethernet adapter:
+
+```text
+IP address: 10.55.0.1
+Subnet mask: 255.255.255.0
+Gateway: blank
+DNS: blank or automatic
+```
+
+Pi `eth0`:
+
+```text
+IP address: 10.55.0.2/24
+Gateway: blank
+```
+
+Monthly pull commands from the PC:
+
+```powershell
+ssh grizzlepi@10.55.0.2
+```
+
+Then open the dashboard from the PC:
+
+```text
+http://10.55.0.2:5000
+```
+
+Download CSV from:
+
+```text
+http://10.55.0.2:5000/export.csv
+```
+
+Keep `GRIZZL_ENABLE_TEST_CHARGER=0` for offline work-site operation. Set it to
+`1` only when the Pi has a route to the home test charger at `192.168.68.166`.
 
 ## Network Rules
 

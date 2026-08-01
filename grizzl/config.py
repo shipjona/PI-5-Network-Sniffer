@@ -78,6 +78,17 @@ def charger_password(charger: dict[str, Any]) -> str:
 
     return required_secret(str(password_env))
 
+
+def env_bool(name: str, *, default: bool = False) -> bool:
+    """Read a boolean setting from environment or the protected env file."""
+    load_environment_file()
+    value = os.getenv(name)
+
+    if value is None:
+        return default
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
 # Fleet inventory
 CHARGERS: Final = (
     {
@@ -88,7 +99,7 @@ CHARGERS: Final = (
         "password_env": TEST_WIFI_PASSWORD_ENV,
         "url": CHARGER_URL,
         "target_url": CHARGER_URL,
-        "enabled": True,
+        "enabled": env_bool("GRIZZL_ENABLE_TEST_CHARGER", default=False),
         "environment": "development",
         "test_charger": True,
         "connect_mode": "direct",
