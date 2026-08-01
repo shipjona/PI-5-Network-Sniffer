@@ -157,6 +157,8 @@ Pages:
 - `/` overview metrics, charger status, recent sessions, recent collection runs.
 - `/chargers` charger visibility, errors, manual collect action.
 - `/sessions` filters, pagination, CSV export.
+- `/vitals` Raspberry Pi temperature, CPU, memory, disk, uptime, throttling,
+  and trend summaries with adjustable ranges.
 - `/health` database, disk, NetworkManager, interface, time, and test-charger
   diagnostics.
 - `/settings` non-secret charger display/enable/target URL settings and report

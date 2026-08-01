@@ -19,6 +19,7 @@ from grizzl.database import (
 from grizzl.discovery import configured_chargers
 from grizzl.parser import parse_charging_history
 from grizzl.scanner import scan_and_record, visible_wifi_chargers_from_last_scan
+from grizzl.vitals import collect_and_store_system_vitals
 from grizzl.wifi import WiFiError, connect_to_charger, disconnect
 
 logger = logging.getLogger(__name__)
@@ -236,6 +237,10 @@ def poll_once(*, include_wifi: bool = True) -> dict[str, Any]:
     disconnect wlan0 from the normal mesh network.
     """
     sync_chargers(CHARGERS)
+    try:
+        collect_and_store_system_vitals()
+    except Exception:
+        logger.exception("Failed to record system vitals sample")
 
     enabled_chargers = configured_chargers()
     direct_chargers = [

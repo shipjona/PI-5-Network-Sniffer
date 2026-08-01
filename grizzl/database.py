@@ -200,6 +200,33 @@ def initialize_database() -> None:
                 attachment_path TEXT,
                 error_message TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS system_vitals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sampled_at TEXT NOT NULL,
+                temperature_c REAL,
+                cpu_percent REAL,
+                cpu_frequency_mhz REAL,
+                load_1 REAL,
+                load_5 REAL,
+                load_15 REAL,
+                memory_total_bytes INTEGER,
+                memory_available_bytes INTEGER,
+                memory_used_percent REAL,
+                swap_total_bytes INTEGER,
+                swap_free_bytes INTEGER,
+                root_total_bytes INTEGER,
+                root_free_bytes INTEGER,
+                root_used_percent REAL,
+                data_total_bytes INTEGER,
+                data_free_bytes INTEGER,
+                data_used_percent REAL,
+                uptime_seconds INTEGER,
+                throttled_raw TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_system_vitals_sampled_at
+                ON system_vitals(sampled_at);
             """
         )
         conn.execute(
@@ -1299,6 +1326,127 @@ def complete_report_run(
             """,
             (status, utc_now_iso(), error_message, report_run_id),
         )
+
+
+SYSTEM_VITAL_COLUMNS = (
+    "sampled_at",
+    "temperature_c",
+    "cpu_percent",
+    "cpu_frequency_mhz",
+    "load_1",
+    "load_5",
+    "load_15",
+    "memory_total_bytes",
+    "memory_available_bytes",
+    "memory_used_percent",
+    "swap_total_bytes",
+    "swap_free_bytes",
+    "root_total_bytes",
+    "root_free_bytes",
+    "root_used_percent",
+    "data_total_bytes",
+    "data_free_bytes",
+    "data_used_percent",
+    "uptime_seconds",
+    "throttled_raw",
+)
+
+
+SYSTEM_VITAL_TREND_COLUMNS = (
+    ("temperature_c", "Temperature", "C"),
+    ("cpu_percent", "CPU Used", "%"),
+    ("cpu_frequency_mhz", "CPU Frequency", "MHz"),
+    ("load_1", "Load 1m", ""),
+    ("memory_used_percent", "Memory Used", "%"),
+    ("root_used_percent", "System Disk Used", "%"),
+    ("data_used_percent", "Data Disk Used", "%"),
+)
+
+
+def save_system_vitals(sample: dict[str, Any]) -> int:
+    """Persist one Pi vitals sample and return its row ID."""
+    initialize_database()
+    values = [sample.get(column) for column in SYSTEM_VITAL_COLUMNS]
+    placeholders = ", ".join("?" for _column in SYSTEM_VITAL_COLUMNS)
+    columns = ", ".join(SYSTEM_VITAL_COLUMNS)
+
+    with connection() as conn:
+        cursor = conn.execute(
+            f"INSERT INTO system_vitals ({columns}) VALUES ({placeholders})",
+            values,
+        )
+        return int(cursor.lastrowid)
+
+
+def list_system_vitals(
+    *,
+    since: str,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Return recent vitals samples within a UTC ISO time window."""
+    initialize_database()
+
+    with connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM system_vitals
+            WHERE sampled_at >= ?
+            ORDER BY sampled_at DESC, id DESC
+            LIMIT ?
+            """,
+            (since, max(1, min(int(limit), 1000))),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def summarize_system_vitals(*, since: str) -> list[dict[str, Any]]:
+    """Return latest/average/min/max trend rows for selected vitals."""
+    initialize_database()
+    trends: list[dict[str, Any]] = []
+
+    with connection() as conn:
+        for column, label, unit in SYSTEM_VITAL_TREND_COLUMNS:
+            summary = conn.execute(
+                f"""
+                SELECT
+                    COUNT({column}) AS count,
+                    AVG({column}) AS average,
+                    MIN({column}) AS minimum,
+                    MAX({column}) AS maximum
+                FROM system_vitals
+                WHERE sampled_at >= ?
+                  AND {column} IS NOT NULL
+                """,
+                (since,),
+            ).fetchone()
+            latest = conn.execute(
+                f"""
+                SELECT {column} AS value
+                FROM system_vitals
+                WHERE sampled_at >= ?
+                  AND {column} IS NOT NULL
+                ORDER BY sampled_at DESC, id DESC
+                LIMIT 1
+                """,
+                (since,),
+            ).fetchone()
+
+            trends.append(
+                {
+                    "metric": column,
+                    "label": label,
+                    "unit": unit,
+                    "count": int(summary["count"]),
+                    "latest": latest["value"] if latest is not None else None,
+                    "average": summary["average"],
+                    "minimum": summary["minimum"],
+                    "maximum": summary["maximum"],
+                }
+            )
+
+    return trends
 
 
 def list_report_runs(limit: int = 20) -> list[dict[str, Any]]:

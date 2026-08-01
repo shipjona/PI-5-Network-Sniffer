@@ -12,6 +12,7 @@ from grizzl.database import (
 from grizzl.health import run_health_checks
 from grizzl.scanner import scan_and_record
 from grizzl.services.polling import poll_once
+from grizzl.vitals import build_vitals_payload
 
 
 api_blueprint = Blueprint(
@@ -99,3 +100,9 @@ def poll():
 def health():
     _bootstrap()
     return jsonify(run_health_checks())
+
+
+@api_blueprint.get("/vitals")
+def vitals():
+    _bootstrap()
+    return jsonify(build_vitals_payload(request.args.get("range")))

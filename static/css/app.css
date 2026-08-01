@@ -88,6 +88,15 @@ main {
     color: var(--error);
 }
 
+.vitals-toolbar {
+    align-items: end;
+    gap: 16px;
+}
+
+.vitals-toolbar label {
+    width: 180px;
+}
+
 .metric,
 .panel {
     background: var(--panel);

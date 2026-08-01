@@ -68,3 +68,23 @@ def test_fleet_api_includes_live_dashboard_payload(
     assert "sessions" in payload
     assert "statistics" in payload
     assert "runs" in payload
+
+
+def test_vitals_page_and_api_routes(tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "grizzl.db"
+    monkeypatch.setattr(database, "DB_PATH", db_path)
+    app.config.update(TESTING=True)
+
+    with app.test_client() as client:
+        page = client.get("/vitals?range=1h")
+        api = client.get("/api/vitals?range=1h")
+
+    payload = api.get_json()
+
+    assert page.status_code == 200
+    assert b"Trend Summary" in page.data
+    assert api.status_code == 200
+    assert payload["selected_range"] == "1h"
+    assert "current" in payload
+    assert "samples" in payload
+    assert "trends" in payload

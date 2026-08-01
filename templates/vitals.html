@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% macro percent(value) -%}
+    {{ "%.1f"|format(value) if value is not none else "-" }}{{ "%" if value is not none else "" }}
+{%- endmacro %}
+
+{% macro number(value, digits=1, unit="") -%}
+    {{ ("%%.%df" % digits)|format(value) if value is not none else "-" }}{{ (" " ~ unit) if value is not none and unit else "" }}
+{%- endmacro %}
+
+{% block content %}
+<section class="dashboard-live-bar vitals-toolbar" aria-live="polite">
+    <label>
+        Range
+        <select id="vitals-range">
+            {% for range in vitals.ranges %}
+            <option value="{{ range.key }}" {% if vitals.selected_range == range.key %}selected{% endif %}>
+                {{ range.label }}
+            </option>
+            {% endfor %}
+        </select>
+    </label>
+    <span id="vitals-refresh-status">Updated on load</span>
+</section>
+
+<section class="metrics-grid">
+    <article class="metric">
+        <span>CPU Temp</span>
+        <strong id="vital-temperature">{{ number(vitals.current.temperature_c, 1, "C") }}</strong>
+    </article>
+    <article class="metric">
+        <span>CPU Used</span>
+        <strong id="vital-cpu">{{ percent(vitals.current.cpu_percent) }}</strong>
+    </article>
+    <article class="metric">
+        <span>Memory Used</span>
+        <strong id="vital-memory">{{ percent(vitals.current.memory_used_percent) }}</strong>
+    </article>
+    <article class="metric">
+        <span>Data Disk Used</span>
+        <strong id="vital-data-disk">{{ percent(vitals.current.data_used_percent) }}</strong>
+    </article>
+</section>
+
+<section class="metrics-grid">
+    <article class="metric">
+        <span>Load 1m</span>
+        <strong id="vital-load">{{ number(vitals.current.load_1, 2) }}</strong>
+    </article>
+    <article class="metric">
+        <span>CPU Frequency</span>
+        <strong id="vital-frequency">{{ number(vitals.current.cpu_frequency_mhz, 0, "MHz") }}</strong>
+    </article>
+    <article class="metric">
+        <span>System Disk Used</span>
+        <strong id="vital-system-disk">{{ percent(vitals.current.root_used_percent) }}</strong>
+    </article>
+    <article class="metric">
+        <span>Throttle Flags</span>
+        <strong id="vital-throttle">{{ vitals.current.throttled_raw or "-" }}</strong>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2>Trend Summary</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Latest</th>
+                    <th>Average</th>
+                    <th>Minimum</th>
+                    <th>Maximum</th>
+                    <th>Samples</th>
+                </tr>
+            </thead>
+            <tbody id="vitals-trends-body">
+                {% for trend in vitals.trends %}
+                <tr>
+                    <td>{{ trend.label }}</td>
+                    <td>{{ number(trend.latest, 2, trend.unit) }}</td>
+                    <td>{{ number(trend.average, 2, trend.unit) }}</td>
+                    <td>{{ number(trend.minimum, 2, trend.unit) }}</td>
+                    <td>{{ number(trend.maximum, 2, trend.unit) }}</td>
+                    <td>{{ trend.count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2>Recent Samples</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sampled</th>
+                    <th>Temp</th>
+                    <th>CPU</th>
+                    <th>Load</th>
+                    <th>Memory</th>
+                    <th>System Disk</th>
+                    <th>Data Disk</th>
+                    <th>Uptime</th>
+                    <th>Throttle</th>
+                </tr>
+            </thead>
+            <tbody id="vitals-samples-body">
+                {% for sample in vitals.samples %}
+                <tr>
+                    <td>{{ sample.sampled_at }}</td>
+                    <td>{{ number(sample.temperature_c, 1, "C") }}</td>
+                    <td>{{ percent(sample.cpu_percent) }}</td>
+                    <td>{{ number(sample.load_1, 2) }}</td>
+                    <td>{{ percent(sample.memory_used_percent) }}</td>
+                    <td>{{ percent(sample.root_used_percent) }}</td>
+                    <td>{{ percent(sample.data_used_percent) }}</td>
+                    <td>{{ sample.uptime_seconds if sample.uptime_seconds is not none else "-" }}</td>
+                    <td>{{ sample.throttled_raw or "-" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="empty">No vitals samples recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

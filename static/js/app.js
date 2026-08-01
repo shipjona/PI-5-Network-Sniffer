@@ -234,3 +234,172 @@ function initializeDashboardAutoRefresh() {
 }
 
 document.addEventListener("DOMContentLoaded", initializeDashboardAutoRefresh);
+
+function formatNumber(value, digits = 1, unit = "") {
+    if (value === null || value === undefined || value === "") {
+        return "-";
+    }
+
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return "-";
+    }
+
+    return `${numeric.toFixed(digits)}${unit ? ` ${unit}` : ""}`;
+}
+
+function formatPercent(value) {
+    if (value === null || value === undefined || value === "") {
+        return "-";
+    }
+
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return "-";
+    }
+
+    return `${numeric.toFixed(1)}%`;
+}
+
+function formatSeconds(value) {
+    const seconds = Number(value ?? 0);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+        return "-";
+    }
+
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (days > 0) {
+        return `${days}d ${hours}h`;
+    }
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+}
+
+function formatTrendValue(value, unit) {
+    if (unit === "%") {
+        return formatPercent(value);
+    }
+    if (unit === "MHz") {
+        return formatNumber(value, 0, unit);
+    }
+    return formatNumber(value, unit ? 2 : 2, unit);
+}
+
+function renderVitalsCurrent(current) {
+    setText("vital-temperature", formatNumber(current.temperature_c, 1, "C"));
+    setText("vital-cpu", formatPercent(current.cpu_percent));
+    setText("vital-memory", formatPercent(current.memory_used_percent));
+    setText("vital-data-disk", formatPercent(current.data_used_percent));
+    setText("vital-load", formatNumber(current.load_1, 2));
+    setText("vital-frequency", formatNumber(current.cpu_frequency_mhz, 0, "MHz"));
+    setText("vital-system-disk", formatPercent(current.root_used_percent));
+    setText("vital-throttle", current.throttled_raw || "-");
+}
+
+function renderVitalsTrends(trends) {
+    const body = document.getElementById("vitals-trends-body");
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = trends.map((trend) => `
+        <tr>
+            <td>${escapeHtml(trend.label)}</td>
+            <td>${escapeHtml(formatTrendValue(trend.latest, trend.unit))}</td>
+            <td>${escapeHtml(formatTrendValue(trend.average, trend.unit))}</td>
+            <td>${escapeHtml(formatTrendValue(trend.minimum, trend.unit))}</td>
+            <td>${escapeHtml(formatTrendValue(trend.maximum, trend.unit))}</td>
+            <td>${escapeHtml(trend.count)}</td>
+        </tr>
+    `).join("");
+}
+
+function renderVitalsSamples(samples) {
+    const body = document.getElementById("vitals-samples-body");
+    if (!body) {
+        return;
+    }
+
+    if (!samples.length) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="9" class="empty">No vitals samples recorded yet.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    body.innerHTML = samples.map((sample) => `
+        <tr>
+            <td>${escapeHtml(sample.sampled_at)}</td>
+            <td>${escapeHtml(formatNumber(sample.temperature_c, 1, "C"))}</td>
+            <td>${escapeHtml(formatPercent(sample.cpu_percent))}</td>
+            <td>${escapeHtml(formatNumber(sample.load_1, 2))}</td>
+            <td>${escapeHtml(formatPercent(sample.memory_used_percent))}</td>
+            <td>${escapeHtml(formatPercent(sample.root_used_percent))}</td>
+            <td>${escapeHtml(formatPercent(sample.data_used_percent))}</td>
+            <td>${escapeHtml(formatSeconds(sample.uptime_seconds))}</td>
+            <td>${escapeHtml(sample.throttled_raw || "-")}</td>
+        </tr>
+    `).join("");
+}
+
+function setVitalsRefreshStatus(message, isError = false) {
+    const status = document.getElementById("vitals-refresh-status");
+    if (!status) {
+        return;
+    }
+
+    status.textContent = message;
+    status.classList.toggle("refresh-error", isError);
+}
+
+function initializeVitalsAutoRefresh() {
+    const rangeSelect = document.getElementById("vitals-range");
+    if (!(rangeSelect instanceof HTMLSelectElement)) {
+        return;
+    }
+
+    let refreshing = false;
+
+    async function refreshVitals() {
+        if (refreshing) {
+            return;
+        }
+
+        refreshing = true;
+        try {
+            const params = new URLSearchParams({ range: rangeSelect.value });
+            const response = await fetch(`/api/vitals?${params}`, {
+                cache: "no-store",
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            renderVitalsCurrent(data.current);
+            renderVitalsTrends(data.trends ?? []);
+            renderVitalsSamples(data.samples ?? []);
+            setVitalsRefreshStatus(`Updated ${new Date().toLocaleTimeString()}`);
+        } catch (error) {
+            setVitalsRefreshStatus(`Update failed: ${error.message}`, true);
+        } finally {
+            refreshing = false;
+        }
+    }
+
+    rangeSelect.addEventListener("change", refreshVitals);
+    refreshVitals();
+    window.setInterval(() => {
+        if (document.visibilityState === "visible") {
+            refreshVitals();
+        }
+    }, 15000);
+}
+
+document.addEventListener("DOMContentLoaded", initializeVitalsAutoRefresh);

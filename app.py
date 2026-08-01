@@ -32,6 +32,7 @@ from grizzl.health import run_health_checks
 from grizzl.reports import send_weekly_report
 from grizzl.routes.api import api_blueprint
 from grizzl.services.polling import poll_single
+from grizzl.vitals import build_vitals_payload
 
 
 def _bootstrap() -> None:
@@ -143,6 +144,17 @@ def health_page():
         app_name=APP_NAME,
         site_name=SITE_NAME,
         health=run_health_checks(),
+    )
+
+
+@app.get("/vitals")
+def vitals_page():
+    _bootstrap()
+    return render_template(
+        "vitals.html",
+        app_name=APP_NAME,
+        site_name=SITE_NAME,
+        vitals=build_vitals_payload(request.args.get("range")),
     )
 
 
