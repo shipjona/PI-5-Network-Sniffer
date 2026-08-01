@@ -37,6 +37,7 @@ def scan_and_record() -> ScanCycleResult:
             visible_count,
             len(rows),
         )
+        set_service_state("scanner_last_error", None)
         return ScanCycleResult(
             status="success",
             visible_count=visible_count,

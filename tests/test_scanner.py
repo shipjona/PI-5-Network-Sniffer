@@ -27,3 +27,21 @@ def test_scan_failure_records_work_chargers_offline(tmp_path: Path, monkeypatch)
     assert result.visible_count == 0
     assert len(work_chargers) == 14
     assert all(charger["last_error"] == "SSID not visible" for charger in work_chargers)
+
+
+def test_successful_scan_clears_previous_scanner_error(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "grizzl.db"
+    monkeypatch.setattr(database, "DB_PATH", db_path)
+    monkeypatch.setattr(scanner, "scan_configured_chargers", lambda: [])
+    database.initialize_database()
+    database.sync_chargers(CHARGERS)
+    database.set_service_state("scanner_last_error", "old scan failure")
+
+    result = scanner.scan_and_record()
+    state = database.get_service_state()
+
+    assert result.status == "success"
+    assert state["scanner_last_error"]["value"] is None
