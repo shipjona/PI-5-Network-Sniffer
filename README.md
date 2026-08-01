@@ -173,6 +173,28 @@ CSV export endpoint:
 For the work-site appliance, the Pi can run without internet. It stores scan,
 collection, session, and failure data locally in SQLite.
 
+## Storage Layout
+
+Current appliance layout:
+
+```text
+/                         /dev/mmcblk0p2   ext4   Raspberry Pi OS and app code
+/home/grizzlepi/grizzl-monitor/data
+                          /dev/nvme0n1p1   ext4   Grizzl database and app data
+```
+
+The NVMe data filesystem is labeled `GRIZZL_DATA` and mounted by UUID from
+`/etc/fstab`. The collector and web systemd units include
+`RequiresMountsFor=/home/grizzlepi/grizzl-monitor/data` so they wait for the
+data mount before starting.
+
+After migration, the original SD-card data directory is preserved as a dated
+backup beside the project directory, for example:
+
+```text
+/home/grizzlepi/grizzl-monitor/data.sd-backup-YYYYMMDD-HHMMSS
+```
+
 Direct PC-to-Pi Ethernet settings:
 
 Windows Ethernet adapter:

@@ -49,13 +49,13 @@ def check_database() -> HealthCheck:
         return HealthCheck("database", "error", str(exc))
 
 
-def check_disk(path: Path = Path(".")) -> HealthCheck:
+def check_disk(path: Path = Path("."), *, name: str = "disk") -> HealthCheck:
     usage = shutil.disk_usage(path)
     free_gb = usage.free / (1024 ** 3)
     total_gb = usage.total / (1024 ** 3)
     status = "ok" if free_gb >= 1 else "warning"
     return HealthCheck(
-        "disk",
+        name,
         status,
         f"{free_gb:.1f} GB free of {total_gb:.1f} GB",
     )
@@ -166,7 +166,8 @@ def check_test_charger(url: str = CHARGER_URL) -> HealthCheck:
 def run_health_checks(*, include_test_charger: bool = True) -> dict[str, Any]:
     checks = [
         check_database(),
-        check_disk(),
+        check_disk(name="system_disk"),
+        check_disk(Path(DB_PATH).parent, name="data_disk"),
         check_nmcli(),
         check_interface("eth0"),
         check_interface("wlan0"),
