@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <div class="panel-header">
+        <h2>Charger Settings</h2>
+    </div>
+    <div class="settings-list">
+        {% for charger in chargers %}
+        <form class="settings-row" method="post" action="{{ url_for('update_charger', charger_id=charger.numeric_charger_id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div>
+                <strong>{{ charger.charger_id }}</strong>
+                <small>{{ charger.ssid }} / {{ charger.environment }}</small>
+            </div>
+            <label>
+                Name
+                <input name="display_name" value="{{ charger.display_name or '' }}">
+            </label>
+            <label>
+                Target URL
+                <input name="target_url" value="{{ charger.url }}">
+            </label>
+            <label class="checkbox">
+                <input type="checkbox" name="enabled" {% if charger.enabled %}checked{% endif %}>
+                Enabled
+            </label>
+            <button class="button compact" type="submit">Save</button>
+        </form>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2>Weekly Report</h2>
+        <form method="post" action="{{ url_for('test_report') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="button compact" type="submit">Dry Run</button>
+        </form>
+    </div>
+    <p class="muted-copy">
+        SMTP host, credentials, sender, and recipients are loaded from the protected environment file and are not shown here.
+    </p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Created</th>
+                    <th>Period</th>
+                    <th>Status</th>
+                    <th>Sessions</th>
+                    <th>kWh</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports %}
+                <tr>
+                    <td>{{ report.created_at }}</td>
+                    <td>{{ report.period_start }} to {{ report.period_end }}</td>
+                    <td>{{ report.status }}</td>
+                    <td>{{ report.sessions_count }}</td>
+                    <td>{{ "%.3f"|format(report.total_energy_kwh) }}</td>
+                    <td class="error-cell">{{ report.error_message or "-" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No report runs recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

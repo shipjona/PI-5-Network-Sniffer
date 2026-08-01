@@ -1,34 +1,43 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import sqlite3
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from grizzl.config import DB_PATH
 from grizzl.database import initialize_database
+from grizzl.export import session_export_rows, write_sessions_csv
+from grizzl.parser import DEFAULT_TIMEZONE
 
 
-CSV_FIELDS = [
-    "session_id",
-    "charger_id",
-    "charger_name",
-    "ssid",
-    "session_start_local",
-    "session_start_utc",
-    "energy_kwh",
-    "duration",
-    "duration_seconds",
-    "cost",
-    "first_collected_at",
-    "last_confirmed_at",
-]
+def _week_bounds(current: bool) -> tuple[str, str]:
+    tz = ZoneInfo(DEFAULT_TIMEZONE)
+    now = datetime.now(tz)
+    this_monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    start = this_monday if current else this_monday - timedelta(days=7)
+    end = this_monday + timedelta(days=7) if current else this_monday
+    return start.isoformat(), end.isoformat()
+
+
+def _month_bounds(month: str) -> tuple[str, str]:
+    tz = ZoneInfo(DEFAULT_TIMEZONE)
+    start = datetime.strptime(month, "%Y-%m").replace(tzinfo=tz)
+    if start.month == 12:
+        end = start.replace(year=start.year + 1, month=1)
+    else:
+        end = start.replace(month=start.month + 1)
+    return start.isoformat(), end.isoformat()
 
 
 def main() -> int:
@@ -36,54 +45,37 @@ def main() -> int:
     parser.add_argument("--charger-id", type=int)
     parser.add_argument("--start")
     parser.add_argument("--end")
+    parser.add_argument("--current-week", action="store_true")
+    parser.add_argument("--previous-week", action="store_true")
+    parser.add_argument("--month", help="Export one month in YYYY-MM format.")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
+    selected_periods = [
+        bool(args.current_week),
+        bool(args.previous_week),
+        bool(args.month),
+    ]
+    if sum(selected_periods) > 1:
+        raise SystemExit("Choose only one of --current-week, --previous-week, --month")
+
+    start = args.start
+    end = args.end
+    if args.current_week:
+        start, end = _week_bounds(current=True)
+    elif args.previous_week:
+        start, end = _week_bounds(current=False)
+    elif args.month:
+        start, end = _month_bounds(args.month)
+
     initialize_database()
-    query = """
-        SELECT
-            'CHARGER_' || s.charger_id || '-' ||
-                strftime('%Y%m%dT%H%M%S', s.session_start_local) AS session_id,
-            s.charger_id,
-            c.display_name AS charger_name,
-            c.ssid,
-            s.session_start_local,
-            s.session_start_utc,
-            s.energy_kwh,
-            s.duration_text AS duration,
-            s.duration_seconds,
-            s.cost,
-            s.first_collected_at,
-            s.last_confirmed_at
-        FROM sessions s
-        JOIN chargers c ON c.id = s.charger_id
-        WHERE 1 = 1
-    """
-    params: list[object] = []
-
-    if args.charger_id is not None:
-        query += " AND s.charger_id = ?"
-        params.append(args.charger_id)
-    if args.start:
-        query += " AND s.session_start_local >= ?"
-        params.append(args.start)
-    if args.end:
-        query += " AND s.session_start_local <= ?"
-        params.append(args.end)
-
-    query += " ORDER BY s.session_start_utc"
-
     output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(query, params).fetchall()
-
-    with output_path.open("w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=CSV_FIELDS)
-        writer.writeheader()
-        writer.writerows(dict(row) for row in rows)
+    rows = session_export_rows(
+        charger_id=args.charger_id,
+        start=start,
+        end=end,
+    )
+    write_sessions_csv(rows, output_path)
 
     print(f"Exported {len(rows)} session(s) to {output_path}")
     return 0

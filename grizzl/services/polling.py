@@ -8,12 +8,17 @@ from typing import Any
 from grizzl.api import ChargerAPIError, ChargerClient
 from grizzl.config import CHARGERS, POLL_INTERVAL_SECONDS
 from grizzl.database import (
+    complete_collection_run,
     save_parsed_sessions,
     save_charger_status,
+    set_service_state,
+    start_collection_run,
     sync_chargers,
+    utc_now_iso,
 )
-from grizzl.discovery import discover_chargers
+from grizzl.discovery import configured_chargers
 from grizzl.parser import parse_charging_history
+from grizzl.scanner import scan_and_record, visible_wifi_chargers_from_last_scan
 from grizzl.wifi import WiFiError, connect_to_charger, disconnect
 
 logger = logging.getLogger(__name__)
@@ -89,7 +94,11 @@ def require_ethernet() -> None:
 
 def _poll_charger(charger: dict[str, Any]) -> dict[str, Any]:
     charger_id = str(charger["id"])
+    numeric_charger_id = int(charger.get("charger_id", 0))
     uses_wifi = charger.get("connect_mode", "wifi") == "wifi"
+    run_id = start_collection_run(numeric_charger_id)
+    started = time.monotonic()
+    http_status: int | None = None
 
     try:
         if uses_wifi:
@@ -108,22 +117,23 @@ def _poll_charger(charger: dict[str, Any]) -> dict[str, Any]:
 
         with ChargerClient(charger) as client:
             status = client.status()
+            http_status = status.get("http_status")
 
             save_charger_status(
                 charger_id,
                 online=True,
                 active_ssid=str(charger["ssid"]),
-                http_status=status.get("http_status"),
+                http_status=http_status,
                 last_error=None,
             )
 
             payload = client.sessions()
             parse_result = parse_charging_history(
                 payload,
-                charger_id=int(charger.get("charger_id", 0)),
+                charger_id=numeric_charger_id,
             )
             insert_result = save_parsed_sessions(
-                int(charger.get("charger_id", 0)),
+                numeric_charger_id,
                 parse_result.sessions,
                 rejected_count=len(parse_result.rejected),
             )
@@ -136,9 +146,20 @@ def _poll_charger(charger: dict[str, Any]) -> dict[str, Any]:
             insert_result.duplicates,
             insert_result.rejected,
         )
+        complete_collection_run(
+            run_id,
+            status="success",
+            http_status=http_status,
+            records_found=insert_result.parsed,
+            records_inserted=insert_result.inserted,
+            records_duplicate=insert_result.duplicates,
+            records_rejected=insert_result.rejected,
+            response_time_ms=int((time.monotonic() - started) * 1000),
+        )
 
         return {
             "charger_id": charger_id,
+            "collection_run_id": run_id,
             "status": "success",
             "parsed": insert_result.parsed,
             "inserted": insert_result.inserted,
@@ -155,9 +176,18 @@ def _poll_charger(charger: dict[str, Any]) -> dict[str, Any]:
             active_ssid=None,
             last_error=str(exc),
         )
+        complete_collection_run(
+            run_id,
+            status="error",
+            http_status=http_status,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            response_time_ms=int((time.monotonic() - started) * 1000),
+        )
 
         return {
             "charger_id": charger_id,
+            "collection_run_id": run_id,
             "status": "error",
             "error": str(exc),
         }
@@ -171,9 +201,18 @@ def _poll_charger(charger: dict[str, Any]) -> dict[str, Any]:
             active_ssid=None,
             last_error=str(exc),
         )
+        complete_collection_run(
+            run_id,
+            status="error",
+            http_status=http_status,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            response_time_ms=int((time.monotonic() - started) * 1000),
+        )
 
         return {
             "charger_id": charger_id,
+            "collection_run_id": run_id,
             "status": "error",
             "error": str(exc),
         }
@@ -189,7 +228,7 @@ def _poll_charger(charger: dict[str, Any]) -> dict[str, Any]:
                 )
 
 
-def poll_once() -> dict[str, Any]:
+def poll_once(*, include_wifi: bool = True) -> dict[str, Any]:
     """
     Discover and poll all visible configured chargers.
 
@@ -198,32 +237,81 @@ def poll_once() -> dict[str, Any]:
     """
     sync_chargers(CHARGERS)
 
-    chargers = discover_chargers()
+    enabled_chargers = configured_chargers()
+    direct_chargers = [
+        charger for charger in enabled_chargers
+        if charger.get("connect_mode", "wifi") == "direct"
+    ]
+    scan_result = scan_and_record() if include_wifi else None
+    visible_wifi_ids = (
+        visible_wifi_chargers_from_last_scan(scan_result.observations)
+        if scan_result is not None
+        else set()
+    )
     wifi_chargers = [
-        charger for charger in chargers
+        charger for charger in enabled_chargers
         if charger.get("connect_mode", "wifi") == "wifi"
+        and int(charger.get("charger_id", 0)) in visible_wifi_ids
     ]
 
     if wifi_chargers:
         require_ethernet()
 
+    chargers = [*direct_chargers, *wifi_chargers]
+
     if not chargers:
         logger.info("No configured charger SSIDs are currently visible.")
+        set_service_state("collector_last_run_at", utc_now_iso())
         return {
             "status": "success",
             "mode": "ethernet-guarded-wifi-switching",
             "polled": 0,
+            "scan": scan_result.__dict__ if scan_result else None,
             "results": [],
         }
 
     results = [_poll_charger(charger) for charger in chargers]
+    set_service_state("collector_last_run_at", utc_now_iso())
+    set_service_state("collector_last_polled_count", str(len(results)))
 
     return {
         "status": "success",
         "mode": "ethernet-guarded-wifi-switching",
         "polled": len(results),
+        "scan": scan_result.__dict__ if scan_result else None,
         "results": results,
     }
+
+
+def poll_single(charger_id: int, *, include_wifi_scan: bool = False) -> dict[str, Any]:
+    """Poll one configured charger by numeric ID."""
+    sync_chargers(CHARGERS)
+    charger = next(
+        (
+            item for item in configured_chargers()
+            if int(item.get("charger_id", -1)) == charger_id
+        ),
+        None,
+    )
+
+    if charger is None:
+        raise ValueError(f"Unknown or disabled charger_id {charger_id}")
+
+    if charger.get("connect_mode", "wifi") == "wifi":
+        if include_wifi_scan:
+            scan_result = scan_and_record()
+            visible_ids = visible_wifi_chargers_from_last_scan(
+                scan_result.observations
+            )
+            if charger_id not in visible_ids:
+                return {
+                    "charger_id": str(charger["id"]),
+                    "status": "offline",
+                    "error": "SSID not visible",
+                }
+        require_ethernet()
+
+    return _poll_charger(charger)
 
 
 def run_forever() -> None:

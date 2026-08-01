@@ -1,0 +1,13 @@
+[Unit]
+Description=Grizzl-E Charger Monitor Weekly Email Report
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=grizzlepi
+Group=grizzl-monitor
+WorkingDirectory=/home/grizzlepi/grizzl-monitor
+EnvironmentFile=-/etc/grizzl-monitor/grizzl-monitor.env
+ExecStart=/home/grizzlepi/grizzl-monitor/.venv/bin/python /home/grizzlepi/grizzl-monitor/scripts/send_report.py
+NoNewPrivileges=true

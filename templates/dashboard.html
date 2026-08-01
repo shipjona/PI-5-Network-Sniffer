@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="metrics-grid">
+    <article class="metric">
+        <span>Total Sessions</span>
+        <strong>{{ metrics.session_count }}</strong>
+    </article>
+    <article class="metric">
+        <span>Total Energy</span>
+        <strong>{{ "%.3f"|format(metrics.total_energy_kwh) }} kWh</strong>
+    </article>
+    <article class="metric">
+        <span>Today</span>
+        <strong>{{ "%.3f"|format(metrics.today_energy_kwh) }} kWh</strong>
+    </article>
+    <article class="metric">
+        <span>This Month</span>
+        <strong>{{ "%.3f"|format(metrics.month_energy_kwh) }} kWh</strong>
+    </article>
+</section>
+
+<section class="two-column">
+    <article class="panel">
+        <div class="panel-header">
+            <h2>Charger Status</h2>
+            <a class="button secondary" href="{{ url_for('chargers_page') }}">View All</a>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Charger</th>
+                        <th>Visible</th>
+                        <th>Signal</th>
+                        <th>Last Collection</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for charger in chargers %}
+                    <tr>
+                        <td>
+                            <strong>{{ charger.display_name or charger.charger_id }}</strong>
+                            <small>{{ charger.ssid }}</small>
+                        </td>
+                        <td>
+                            <span class="status {{ 'ok' if charger.visible else 'muted' }}"></span>
+                            {{ "Visible" if charger.visible else "Offline" }}
+                        </td>
+                        <td>{{ charger.last_signal if charger.last_signal is not none else "-" }}</td>
+                        <td>{{ charger.last_scrape_success_at or "-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="panel-header">
+            <h2>Energy By Charger</h2>
+        </div>
+        <div class="bars">
+            {% set max_energy = metrics.by_charger | map(attribute='energy_kwh') | max if metrics.by_charger else 0 %}
+            {% for row in metrics.by_charger %}
+            <div class="bar-row">
+                <span>CHARGER_{{ row.charger_id }}</span>
+                <div class="bar-track">
+                    <div class="bar-fill" style="width: {{ 0 if max_energy == 0 else (row.energy_kwh / max_energy * 100) }}%"></div>
+                </div>
+                <strong>{{ "%.2f"|format(row.energy_kwh) }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2>Daily Energy</h2>
+    </div>
+    <div class="bars">
+        {% set max_daily = metrics.daily | map(attribute='energy_kwh') | max if metrics.daily else 0 %}
+        {% for row in metrics.daily %}
+        <div class="bar-row">
+            <span>{{ row.day }}</span>
+            <div class="bar-track">
+                <div class="bar-fill" style="width: {{ 0 if max_daily == 0 else (row.energy_kwh / max_daily * 100) }}%"></div>
+            </div>
+            <strong>{{ "%.2f"|format(row.energy_kwh) }}</strong>
+        </div>
+        {% else %}
+        <p class="muted-copy">No daily energy data yet.</p>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2>Recent Sessions</h2>
+        <a class="button secondary" href="{{ url_for('sessions_page') }}">Open Sessions</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Session</th>
+                    <th>Charger</th>
+                    <th>Start</th>
+                    <th>kWh</th>
+                    <th>Duration</th>
+                    <th>Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for session in sessions %}
+                <tr>
+                    <td>{{ session.session_id }}</td>
+                    <td>CHARGER_{{ session.charger_id }}</td>
+                    <td>{{ session.session_start_local }}</td>
+                    <td>{{ session.energy_kwh }}</td>
+                    <td>{{ session.duration }}</td>
+                    <td>{{ session.cost if session.cost is not none else "-" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No sessions collected yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2>Recent Collection Runs</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Started</th>
+                    <th>Charger</th>
+                    <th>Status</th>
+                    <th>Inserted</th>
+                    <th>Duplicates</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.started_at }}</td>
+                    <td>CHARGER_{{ run.charger_id }}</td>
+                    <td>{{ run.status }}</td>
+                    <td>{{ run.records_inserted }}</td>
+                    <td>{{ run.records_duplicate }}</td>
+                    <td>{{ run.error_message or "-" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No collection runs yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <h1>{{ app_name }}</h1>
+            <p>{{ site_name }}</p>
+        </div>
+        <nav aria-label="Main navigation">
+            <a href="{{ url_for('index') }}">Overview</a>
+            <a href="{{ url_for('chargers_page') }}">Chargers</a>
+            <a href="{{ url_for('sessions_page') }}">Sessions</a>
+            <a href="{{ url_for('health_page') }}">Health</a>
+            <a href="{{ url_for('settings_page') }}">Settings</a>
+        </nav>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <section class="flash-band">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </section>
+        {% endif %}
+    {% endwith %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

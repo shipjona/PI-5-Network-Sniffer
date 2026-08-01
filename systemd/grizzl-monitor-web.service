@@ -1,0 +1,18 @@
+[Unit]
+Description=Grizzl-E Charger Monitor Web Dashboard
+After=network-online.target grizzl-monitor-collector.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=grizzlepi
+Group=grizzl-monitor
+WorkingDirectory=/home/grizzlepi/grizzl-monitor
+EnvironmentFile=-/etc/grizzl-monitor/grizzl-monitor.env
+ExecStart=/home/grizzlepi/grizzl-monitor/.venv/bin/gunicorn --workers 2 --bind 0.0.0.0:5000 app:app
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

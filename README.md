@@ -1,33 +1,32 @@
 # Grizzl-E Charger Monitor
 
-Headless Raspberry Pi monitor for the approved Grizzl-E charger fleet.
+Headless Raspberry Pi 5 appliance for monitoring approved Grizzl-E charger
+access points while keeping management traffic on Ethernet.
 
 ## Current Status
 
-This repository already contains a Flask fleet dashboard, SQLite storage,
-NetworkManager-based Wi-Fi helpers, and a background polling entry point.
+Implemented:
 
-Current implementation state:
+- Normalized parser for Grizzl-E `/get_logResult` JSON and rendered HTML rows.
+- SQLite schema with `chargers`, `sessions`, `charger_observations`,
+  `collection_runs`, `service_state`, and `report_runs`.
+- Duplicate prevention using `UNIQUE(charger_id, session_start_utc)`.
+- Direct test-charger polling at `http://192.168.68.166`.
+- Work-charger offline logging when approved SSIDs are not visible or Wi-Fi scan
+  is unavailable.
+- NetworkManager/nmcli scanner using machine-readable output.
+- Production Wi-Fi profiles configured with `never-default` route protection.
+- Flask dashboard pages for overview, chargers, sessions, health, settings, and
+  CSV export.
+- CLI tools for initialize, scrape, scan, poll, health, export, and report.
+- Weekly report generator with CSV attachment and SMTP send path.
+- Systemd collector, web, report service, report timer, install script, and
+  NetworkManager polkit rule.
+- Pytest coverage for parser, database dedupe, scanner offline logging, CSV
+  export, reports, routes, config, and Wi-Fi output parsing.
 
-- Python virtual environment exists at `.venv`.
-- Core imports and SQLite writes are verified by `verify_setup.py`.
-- Git is initialized and configured for `shipjona <jonathan25551@outlook.com>`.
-- Charger inventory is configured without committing Wi-Fi passwords.
-- `wlan0` scanning uses NetworkManager machine-readable output.
-- Scanner filters only configured charger SSIDs by default.
-- Production Wi-Fi profiles are configured with `ipv4.never-default=yes` and
-  `ipv6.never-default=yes` before connection.
-- Test charger can be accessed directly at `http://192.168.68.166` without
-  switching `wlan0`.
-
-Known remaining work:
-
-- Parse Grizzl-E rendered charging-history rows into normalized session fields.
-- Migrate from raw payload session storage to `charger_id + session_start_utc`
-  duplicate prevention.
-- Add charger visibility/collection-run tables.
-- Expand dashboard pages, CSV export, health checks, systemd deployment, and
-  weekly email reporting.
+The current source is safe for test-charger operation. Do not run live
+production Wi-Fi connection tests until Ethernet is confirmed on the Pi.
 
 ## Approved Charger SSIDs
 
@@ -55,38 +54,65 @@ sudo chmod 0640 /etc/grizzl-monitor/grizzl-monitor.env
 sudo nano /etc/grizzl-monitor/grizzl-monitor.env
 ```
 
-Required Wi-Fi variables:
+Required for production Wi-Fi:
 
 ```bash
 GRIZZL_PRODUCTION_WIFI_PASSWORD=...
 GRIZZL_TEST_WIFI_PASSWORD=...
+GRIZZL_FLASK_SECRET_KEY=...
 ```
 
-The application reads `/etc/grizzl-monitor/grizzl-monitor.env` at runtime.
-Secrets are resolved only when a Wi-Fi connection is attempted.
+Required for email reports:
+
+```bash
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USERNAME=...
+SMTP_PASSWORD=...
+REPORT_SENDER=...
+REPORT_RECIPIENT=...
+```
 
 ## Development Commands
 
-Activate the environment:
+Activate the Pi environment:
 
 ```bash
 cd /home/grizzlepi/grizzl-monitor
 source .venv/bin/activate
 ```
 
-Verify baseline setup:
+Initialize the database:
 
 ```bash
-python verify_setup.py
+python scripts/initialize_db.py
 ```
 
-Run unit tests:
+Run tests:
 
 ```bash
 python -m pytest
 ```
 
-Scan for approved charger SSIDs on `wlan0`:
+Poll the test charger directly:
+
+```bash
+python scripts/test_scrape.py --charger-id 0
+python scripts/test_scrape.py --charger-id 0
+```
+
+The second run should report duplicate rows instead of inserting more sessions.
+
+Run one collector cycle:
+
+```bash
+python scripts/poll_once.py
+```
+
+On a development PC without `nmcli`, this logs work chargers offline and still
+polls the direct test charger.
+
+Scan approved charger SSIDs on the Pi:
 
 ```bash
 python scripts/test_scan.py
@@ -98,10 +124,46 @@ Show all visible SSIDs for diagnostics:
 python scripts/test_scan.py --all
 ```
 
-Start the current dashboard locally:
+Export CSV:
+
+```bash
+python scripts/export_csv.py --output data/exports/sessions.csv
+```
+
+Run health checks:
+
+```bash
+python scripts/health_check.py
+```
+
+Generate a report dry-run:
+
+```bash
+python scripts/send_report.py --dry-run --output-dir data/reports
+```
+
+Start the production web dashboard manually:
 
 ```bash
 gunicorn --bind 0.0.0.0:5000 app:app
+```
+
+## Dashboard
+
+Pages:
+
+- `/` overview metrics, charger status, recent sessions, recent collection runs.
+- `/chargers` charger visibility, errors, manual collect action.
+- `/sessions` filters, pagination, CSV export.
+- `/health` database, disk, NetworkManager, interface, time, and test-charger
+  diagnostics.
+- `/settings` non-secret charger display/enable/target URL settings and report
+  dry-run action.
+
+CSV export endpoint:
+
+```text
+/export.csv?charger_id=0&start=2026-07-28T00:00:00-07:00&end=2026-08-02T00:00:00-07:00
 ```
 
 ## Network Rules
@@ -111,8 +173,9 @@ gunicorn --bind 0.0.0.0:5000 app:app
 - `wlan0` is reserved for charger AP scanning and production charger
   connections.
 - Production charger Wi-Fi profiles must never install a default route.
-- The test charger at `192.168.68.166` should be scraped directly while it is
-  reachable on the management LAN.
+- The test charger at `192.168.68.166` is scraped directly while reachable on
+  the management LAN.
+- Work chargers are logged offline when their approved AP SSID is not visible.
 
 Before production connection testing, verify:
 
@@ -123,3 +186,25 @@ ip route show default
 
 Do not run a live production Wi-Fi connection test unless Ethernet management
 connectivity has been confirmed.
+
+## Systemd Install On The Pi
+
+From the project directory:
+
+```bash
+sudo bash scripts/install.sh
+sudo nano /etc/grizzl-monitor/grizzl-monitor.env
+sudo systemctl restart polkit NetworkManager
+sudo systemctl start grizzl-monitor-collector.service
+sudo systemctl start grizzl-monitor-web.service
+sudo systemctl start grizzl-monitor-report.timer
+```
+
+Check status/logs:
+
+```bash
+systemctl status grizzl-monitor-collector.service
+systemctl status grizzl-monitor-web.service
+systemctl list-timers grizzl-monitor-report.timer
+journalctl -u grizzl-monitor-collector.service -f
+```

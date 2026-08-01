@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <div class="panel-header">
+        <h2>Health</h2>
+        <span class="pill pill-{{ health.overall }}">{{ health.overall }}</span>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Check</th>
+                    <th>Status</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for check in health.checks %}
+                <tr>
+                    <td>{{ check.name }}</td>
+                    <td><span class="pill pill-{{ check.status }}">{{ check.status }}</span></td>
+                    <td>{{ check.detail }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2>Service State</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key, item in health.service_state.items() %}
+                <tr>
+                    <td>{{ key }}</td>
+                    <td>{{ item.value or "-" }}</td>
+                    <td>{{ item.updated_at }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty">No service state recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

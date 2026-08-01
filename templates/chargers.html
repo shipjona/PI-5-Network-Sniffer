@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <div class="panel-header">
+        <h2>Chargers</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>SSID</th>
+                    <th>Visible</th>
+                    <th>Signal</th>
+                    <th>Sessions</th>
+                    <th>Last Seen</th>
+                    <th>Last Success</th>
+                    <th>Error</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for charger in chargers %}
+                <tr>
+                    <td>{{ charger.charger_id }}</td>
+                    <td>{{ charger.display_name or "-" }}</td>
+                    <td>{{ charger.ssid }}</td>
+                    <td>
+                        <span class="status {{ 'ok' if charger.visible else 'muted' }}"></span>
+                        {{ "Visible" if charger.visible else "Offline" }}
+                    </td>
+                    <td>{{ charger.last_signal if charger.last_signal is not none else "-" }}</td>
+                    <td>{{ charger.session_count }}</td>
+                    <td>{{ charger.ssid_last_seen_at or charger.last_seen_at or "-" }}</td>
+                    <td>{{ charger.last_scrape_success_at or "-" }}</td>
+                    <td class="error-cell">{{ charger.last_error or "-" }}</td>
+                    <td>
+                        <form method="post" action="{{ url_for('collect_charger', charger_id=charger.numeric_charger_id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="button compact" type="submit">Collect</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2>Collection Runs</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Run</th>
+                    <th>Charger</th>
+                    <th>Started</th>
+                    <th>Completed</th>
+                    <th>Status</th>
+                    <th>HTTP</th>
+                    <th>Parsed</th>
+                    <th>Inserted</th>
+                    <th>Rejected</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.id }}</td>
+                    <td>CHARGER_{{ run.charger_id }}</td>
+                    <td>{{ run.started_at }}</td>
+                    <td>{{ run.completed_at or "-" }}</td>
+                    <td>{{ run.status }}</td>
+                    <td>{{ run.http_status or "-" }}</td>
+                    <td>{{ run.records_found }}</td>
+                    <td>{{ run.records_inserted }}</td>
+                    <td>{{ run.records_rejected }}</td>
+                    <td class="error-cell">{{ run.error_message or "-" }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10" class="empty">No collection runs yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

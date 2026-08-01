@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Grizzl-E weekly email report
+
+[Timer]
+OnCalendar=Mon *-*-* 07:00:00
+Persistent=true
+Unit=grizzl-monitor-report.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <div class="panel-header">
+        <h2>Sessions</h2>
+        <a class="button secondary" href="{{ url_for('export_csv', charger_id=filters.charger_id, start=filters.start, end=filters.end, keyword=filters.keyword) }}">Export CSV</a>
+    </div>
+    <form class="filter-grid" method="get" action="{{ url_for('sessions_page') }}">
+        <label>
+            Charger
+            <select name="charger_id">
+                <option value="">All</option>
+                {% for charger in chargers %}
+                <option value="{{ charger.numeric_charger_id }}" {% if filters.charger_id == charger.numeric_charger_id %}selected{% endif %}>
+                    {{ charger.charger_id }} - {{ charger.display_name or charger.ssid }}
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            Start
+            <input type="datetime-local" name="start" value="{{ filters.start or '' }}">
+        </label>
+        <label>
+            End
+            <input type="datetime-local" name="end" value="{{ filters.end or '' }}">
+        </label>
+        <label>
+            Keyword
+            <input type="search" name="keyword" value="{{ filters.keyword or '' }}">
+        </label>
+        <button class="button" type="submit">Filter</button>
+    </form>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Session ID</th>
+                    <th>Charger</th>
+                    <th>Start Local</th>
+                    <th>Start UTC</th>
+                    <th>kWh</th>
+                    <th>Duration</th>
+                    <th>Cost</th>
+                    <th>Collected</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for session in sessions %}
+                <tr>
+                    <td>{{ session.session_id }}</td>
+                    <td>{{ session.charger_name or ("CHARGER_" ~ session.charger_id) }}</td>
+                    <td>{{ session.session_start_local }}</td>
+                    <td>{{ session.session_start_utc }}</td>
+                    <td>{{ session.energy_kwh }}</td>
+                    <td>{{ session.duration }}</td>
+                    <td>{{ session.cost if session.cost is not none else "-" }}</td>
+                    <td>{{ session.first_collected_at }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="empty">No sessions match this filter.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="pagination">
+        <span>{{ total }} total session(s)</span>
+        {% if page > 1 %}
+        <a class="button secondary" href="{{ url_for('sessions_page', page=page-1, charger_id=filters.charger_id, start=filters.start, end=filters.end, keyword=filters.keyword) }}">Previous</a>
+        {% endif %}
+        {% if total > page * per_page %}
+        <a class="button secondary" href="{{ url_for('sessions_page', page=page+1, charger_id=filters.charger_id, start=filters.start, end=filters.end, keyword=filters.keyword) }}">Next</a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
