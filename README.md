@@ -62,6 +62,7 @@ GRIZZL_PRODUCTION_WIFI_PASSWORD=...
 GRIZZL_TEST_WIFI_PASSWORD=...
 GRIZZL_FLASK_SECRET_KEY=...
 GRIZZL_ENABLE_TEST_CHARGER=0
+GRIZZL_REQUIRE_ETHERNET_FOR_WIFI=0
 ```
 
 Required for email reports:
@@ -176,6 +177,11 @@ CSV export endpoint:
 
 For the work-site appliance, the Pi can run without internet. It stores scan,
 collection, session, and failure data locally in SQLite.
+
+For unattended work-site collection with no Ethernet cable attached, set
+`GRIZZL_REQUIRE_ETHERNET_FOR_WIFI=0`. Keep it set to `1` while developing over
+Wi-Fi SSH, because charger collection temporarily switches `wlan0` away from
+the normal Wi-Fi network.
 
 The Vitals page works offline. NVMe SMART fields require either `smartctl`
 from `smartmontools` or `nvme` from `nvme-cli`; if neither is installed, the

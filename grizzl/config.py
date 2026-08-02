@@ -298,6 +298,10 @@ ONLINE_TIMEOUT_SECONDS: Final = 600
 WIFI_CONNECT_TIMEOUT_SECONDS: Final = 30
 WIFI_SCAN_INTERVAL_SECONDS: Final = 15
 WIFI_SCAN_SETTLE_SECONDS: Final = 2
+REQUIRE_ETHERNET_FOR_WIFI: Final = env_bool(
+    "GRIZZL_REQUIRE_ETHERNET_FOR_WIFI",
+    default=True,
+)
 
 
 def validate_configuration(chargers: tuple[dict[str, Any], ...] = CHARGERS) -> None:

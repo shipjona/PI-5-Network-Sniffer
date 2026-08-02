@@ -21,3 +21,37 @@ def test_poll_once_records_zero_when_no_chargers_are_visible(
 
     assert result["polled"] == 0
     assert state["collector_last_polled_count"]["value"] == "0"
+
+
+def test_require_ethernet_can_be_disabled_for_offline_appliance(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "grizzl.db"
+    monkeypatch.setattr(database, "DB_PATH", db_path)
+    monkeypatch.setattr(polling, "REQUIRE_ETHERNET_FOR_WIFI", False)
+    monkeypatch.setattr(polling, "ethernet_is_connected", lambda: False)
+    database.initialize_database()
+
+    polling.require_ethernet()
+    state = database.get_service_state()
+
+    assert state["ethernet_guard_required"]["value"] == "0"
+
+
+def test_require_ethernet_raises_when_guard_enabled(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "grizzl.db"
+    monkeypatch.setattr(database, "DB_PATH", db_path)
+    monkeypatch.setattr(polling, "REQUIRE_ETHERNET_FOR_WIFI", True)
+    monkeypatch.setattr(polling, "ethernet_is_connected", lambda: False)
+    database.initialize_database()
+
+    try:
+        polling.require_ethernet()
+    except polling.EthernetRequiredError:
+        pass
+    else:
+        raise AssertionError("Expected EthernetRequiredError")

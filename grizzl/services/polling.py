@@ -6,7 +6,7 @@ import time
 from typing import Any
 
 from grizzl.api import ChargerAPIError, ChargerClient
-from grizzl.config import CHARGERS, POLL_INTERVAL_SECONDS
+from grizzl.config import CHARGERS, POLL_INTERVAL_SECONDS, REQUIRE_ETHERNET_FOR_WIFI
 from grizzl.database import (
     complete_collection_run,
     save_parsed_sessions,
@@ -86,6 +86,15 @@ def require_ethernet() -> None:
     This protects the SSH session from being lost when wlan0 disconnects
     from the normal mesh network.
     """
+    if not REQUIRE_ETHERNET_FOR_WIFI:
+        logger.info(
+            "Ethernet guard disabled by GRIZZL_REQUIRE_ETHERNET_FOR_WIFI=0; "
+            "offline Wi-Fi switching is allowed."
+        )
+        set_service_state("ethernet_guard_required", "0")
+        return
+
+    set_service_state("ethernet_guard_required", "1")
     if not ethernet_is_connected():
         raise EthernetRequiredError(
             "Fleet Wi-Fi switching is disabled because no active Ethernet "
