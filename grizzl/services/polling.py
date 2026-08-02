@@ -272,6 +272,11 @@ def poll_once(*, include_wifi: bool = True) -> dict[str, Any]:
         require_ethernet()
 
     chargers = [*direct_chargers, *wifi_chargers]
+    mode = (
+        "ethernet-guarded-wifi-switching"
+        if REQUIRE_ETHERNET_FOR_WIFI
+        else "offline-wifi-switching"
+    )
 
     if not chargers:
         logger.info("No configured charger SSIDs are currently visible.")
@@ -279,7 +284,7 @@ def poll_once(*, include_wifi: bool = True) -> dict[str, Any]:
         set_service_state("collector_last_polled_count", "0")
         return {
             "status": "success",
-            "mode": "ethernet-guarded-wifi-switching",
+            "mode": mode,
             "polled": 0,
             "scan": scan_result.__dict__ if scan_result else None,
             "results": [],
@@ -291,7 +296,7 @@ def poll_once(*, include_wifi: bool = True) -> dict[str, Any]:
 
     return {
         "status": "success",
-        "mode": "ethernet-guarded-wifi-switching",
+        "mode": mode,
         "polled": len(results),
         "scan": scan_result.__dict__ if scan_result else None,
         "results": results,
@@ -331,8 +336,9 @@ def poll_single(charger_id: int, *, include_wifi_scan: bool = False) -> dict[str
 
 def run_forever() -> None:
     logger.info(
-        "Ethernet-guarded fleet poller started; interval=%s seconds",
+        "Fleet poller started; interval=%s seconds ethernet_guard=%s",
         POLL_INTERVAL_SECONDS,
+        "enabled" if REQUIRE_ETHERNET_FOR_WIFI else "disabled",
     )
 
     while True:
