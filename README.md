@@ -1,7 +1,9 @@
 # Grizzl-E Charger Monitor
 
-Headless Raspberry Pi 5 appliance for monitoring approved Grizzl-E charger
-access points while keeping management traffic on local Ethernet.
+This is my Raspberry Pi 5 setup for keeping an eye on our Grizzl-E chargers at
+work. The Pi sits there offline, watches for the approved charger Wi-Fi
+hotspots to appear, pulls the charging history when it can, and saves everything
+locally so I can plug in later and export the data.
 
 ## Current Status
 
